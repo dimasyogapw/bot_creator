@@ -52,4 +52,11 @@ Semua 6 kebutuhan LULUS dengan `claude-sonnet-5-5`:
 - Riwayat yang dikirim ke model dibatasi 20 pesan terakhir (ringkasan otomatis di fase 3).
 - Bug ditemukan saat verifikasi dan sudah diperbaiki: (1) pindah tab cepat bisa tersangkut di halaman lama karena `loading.tsx` di level bot, dipindah ke per halaman; (2) panel setelan di HP melebar keluar layar oleh judul percakapan panjang; (3) avatar kosong tersimpan sebagai teks kosong.
 
+### Pengecekan ulang (sesi Claude Code web, 2026-11-04)
+- Laptop owner memblokir file native hasil npm (Windows Application Control), jadi aplikasi, test, dan build tidak bisa jalan di laptop. Semua eksekusi dilakukan di Claude Code web; laptop hanya `git pull` dan membaca.
+- Install bersih (`npm ci`), lint, typecheck, 25 unit test, build, dan 9 test end-to-end: semua lulus.
+- `npm run dev` + Playwright: halaman login dan daftar bot tampil di 1440px dan 375px, tanpa error di browser.
+- Akun owner BELUM dibuat. Migrasi `model_prices_owner_policy` masih BELUM diterapkan.
+- Akibat batasan laptop, tes manual owner di `localhost` tidak mungkin. Keputusan hosting (lokal untuk fase 1 sampai 4) perlu ditinjau ulang oleh owner.
+
 (diisi Claude Code di akhir tiap fase)
