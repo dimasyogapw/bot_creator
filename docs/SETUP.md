@@ -17,10 +17,10 @@ Aturan emas: **API key dan password tidak pernah ditempel di chat Claude Code da
 ### A2. Supabase (database, login, file, pencarian knowledge)
 1. Buka supabase.com, **New project**. Nama: `bot-creator`. Region: **Southeast Asia (Singapore)**.
 2. Simpan **database password** yang kamu buat.
-3. Setelah project jadi, buka **Project Settings lalu API** (atau **API Keys**). Catat:
-   - Project URL (`https://xxxx.supabase.co`)
-   - anon / publishable key
-   - service_role / secret key (rahasia, jangan pernah dibagikan)
+3. Setelah project jadi, buka **Project Settings lalu API Keys**. Pakai key format baru (jangan buka "View legacy API keys", key lama dihentikan awal 2027). Catat:
+   - **Publishable key** (`sb_publishable_...`), aman untuk browser
+   - **Secret key** (`sb_secret_...`), rahasia, jangan pernah dibagikan
+   - **Project URL** (`https://xxxx.supabase.co`), ada di tombol **Connect** atau menu **Data API**
 4. Buka **Authentication lalu Sign In / Providers**, matikan **Allow new users to sign up** setelah akun owner dibuat (Claude Code akan memandu kapan waktunya di fase 1).
 
 ### A3. GitHub
@@ -54,10 +54,12 @@ Kamu bisa memakai salah satu atau keduanya. Keduanya membaca repo GitHub yang sa
    - **Network access**: pilih level Limited dan tambahkan domain berikut di Allowed domains (biarkan "Allow package managers" tercentang):
      - `ai.sumopod.com`
      - `*.supabase.co`
+     - `supabase.com` dan `api.supabase.com` (untuk perintah Supabase CLI / migrasi)
      - `api.voyageai.com` (hanya jika dipakai sebagai cadangan)
      - `openrouter.ai` (hanya jika dipakai sebagai cadangan)
    - Panduan resmi: https://code.claude.com/docs/en/cloud-environments#network-access
 3. Mulai sesi **baru** setelah mengubah environment supaya pengaturan terbaca.
+   Catatan: koneksi database langsung (port 5432) kemungkinan tetap diblokir di claude.ai/code. Jika migrasi gagal di sana, jalankan migrasi dari VS Code atau lewat connector Supabase.
 4. Ingat: komputer cloud ini sementara. Setiap akhir pekerjaan minta "commit dan push".
 
 ---
@@ -73,8 +75,8 @@ Kamu bisa memakai salah satu atau keduanya. Keduanya membaca repo GitHub yang sa
 | `EMBEDDING_MODEL` | diisi setelah tes fase 1 | Tidak |
 | `EMBEDDING_DIMENSIONS` | diisi setelah tes fase 1 | Tidak |
 | `NEXT_PUBLIC_SUPABASE_URL` | Project URL Supabase | Tidak |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | anon / publishable key | Tidak (memang untuk browser, dilindungi RLS) |
-| `SUPABASE_SERVICE_ROLE_KEY` | service_role / secret key | **Ya, paling sensitif** |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Publishable key `sb_publishable_...` | Tidak (memang untuk browser, dilindungi RLS) |
+| `SUPABASE_SECRET_KEY` | Secret key `sb_secret_...` | **Ya, paling sensitif** |
 | `OWNER_EMAIL` | email login owner | Tidak |
 
 Daftar final mengikuti `.env.example` yang dibuat Claude Code di fase 1.
@@ -91,6 +93,6 @@ Daftar final mengikuti `.env.example` yang dibuat Claude Code di fase 1.
 ## E. Checklist sebelum fase 1
 - [ ] Key SumoPod sudah ada dan saldo terisi
 - [ ] Nama model Sonnet dan Haiku di SumoPod sudah dicatat
-- [ ] Project Supabase sudah jadi, URL dan dua key sudah dicatat
+- [ ] Project Supabase sudah jadi, Project URL + publishable key + secret key sudah dicatat
 - [ ] Tempat kerja siap (VS Code dengan repo ter-clone, atau environment claude.ai/code sudah diisi)
 - [ ] Sudah membaca `prompts/PLAYBOOK.md` bagian "Pola setiap fase"

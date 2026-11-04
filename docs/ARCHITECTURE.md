@@ -35,7 +35,7 @@ Jika poin 3 atau 4 gagal, berhenti dan laporkan ke owner sebelum lanjut.
 2. Satu fungsi inti `runBot(botId, conversationId, userMessage)` yang dipakai oleh SEMUA channel (playground, link publik, widget, Telegram, WhatsApp). Channel hanya adapter.
 3. Kalau provider mendukung prompt caching untuk model Claude, gunakan untuk system prompt dan bagian statis. Kalau tidak, catat di PROGRESS.md dan jaga system prompt tetap ringkas.
 4. Biaya per pesan dihitung dari `usage` dikali harga model yang disimpan di tabel/konfigurasi `model_prices` (bisa diedit owner).
-5. Semua tabel memakai Row Level Security. Owner bisa akses semuanya; endpoint publik memakai service role di server dengan pengecekan eksplisit.
+5. Semua tabel memakai Row Level Security. Owner bisa akses semuanya; endpoint publik memakai secret key Supabase (format baru `sb_secret_`, bukan legacy service_role) di server dengan pengecekan eksplisit.
 6. Setiap migrasi database disimpan sebagai file SQL di `supabase/migrations/`.
 
 ## Model data (awal, boleh diperbaiki saat plan)
