@@ -42,7 +42,7 @@ Semua 6 kebutuhan LULUS dengan `claude-sonnet-5-5`:
 - Bukti keamanan: secret SumoPod dan Supabase tidak ada di file browser hasil build (dicek per nilai kunci). Semua panggilan Supabase lewat server; publishable key pun tidak dikirim ke browser.
 
 ### Belum / catatan
-- Migrasi `20261104130000_model_prices_owner_policy.sql` sudah ditulis tapi BELUM diterapkan ke database (connector Supabase meminta persetujuan owner dan waktunya habis). Tidak memblokir fitur fase 1.
+- Migrasi `20261104130000_model_prices_owner_policy.sql` sudah diterapkan (2026-11-04, disetujui owner). Advisor performa dan security bersih, kecuali saran opsional "Leaked password protection".
 - Pendaftaran publik di Supabase masih harus dimatikan manual oleh owner (langkah di laporan).
 - Tabel `model_prices` masih kosong. Selama kosong, biaya diambil dari angka `cost` yang dikirim SumoPod di akhir stream. UI edit harga belum ada (tidak diminta di fase 1).
 - Avatar memakai alamat gambar (https), belum upload file.
