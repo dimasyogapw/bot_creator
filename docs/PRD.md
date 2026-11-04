@@ -19,13 +19,16 @@ Bot bisa dites di dashboard, lalu dipublikasikan lewat link publik, widget websi
 ## 4. Fitur per fase
 | Fase | Fitur | Status |
 |---|---|---|
-| 1 | Login owner, CRUD bot, playground chat dengan streaming | |
+| 1 | Login owner, CRUD bot, playground chat dengan streaming, asisten "Bantu buatkan persona" | |
 | 2 | Knowledge: upload PDF/DOCX/TXT/MD/URL, pencarian, sitasi | |
 | 3 | Riwayat percakapan, memory jangka panjang per end user | |
 | 4 | Skills: tool yang bisa dipasang per bot (knowledge search, webhook HTTP, dll.) | |
 | 5 | Link publik per bot, widget embed, rate limit | |
 | 6 | Eval set per bot, analytics dasar (jumlah chat, token, biaya) | |
 | 7 | Integrasi Telegram, lalu WhatsApp | |
+
+### Asisten persona (ditambahkan 2026-11-04, fase 1)
+Saat membuat atau mengedit bot, owner bisa menjawab beberapa pertanyaan singkat (tujuan bot, target pengguna, gaya bahasa, hal yang boleh dan tidak boleh dibahas, contoh pertanyaan). Model ringan lalu menyusun draf system prompt dan pesan sambutan. Hasilnya hanya draf: owner tetap bisa mengedit atau menulis sendiri. Fitur ini opsional dan tidak pernah menyimpan otomatis tanpa owner menekan Simpan.
 
 ## 5. Di luar scope (JANGAN dibangun)
 - Multi-user, tim, role, billing, SaaS.
