@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BASE_RULES, buildMessages, buildSystemPrompt, titleFromMessage } from "@/lib/bot/prompt";
+import { BASE_RULES, KNOWLEDGE_RULES, buildMessages, buildSystemPrompt, titleFromMessage } from "@/lib/bot/prompt";
 
 const bot = { name: "Tes", system_prompt: "Kamu barista.", model: "claude-sonnet-5-5" };
 const msg = (role: "user" | "assistant", text: string) => ({ role, content: { text } });
@@ -33,5 +33,13 @@ describe("prompt", () => {
   it("judul dipotong 60 karakter", () => {
     expect(titleFromMessage("a".repeat(100))).toHaveLength(60);
     expect(titleFromMessage("  halo   dunia ")).toBe("halo dunia");
+  });
+
+  it("aturan knowledge hanya ditambahkan jika bot punya knowledge", () => {
+    expect(buildSystemPrompt(bot)).not.toContain(KNOWLEDGE_RULES);
+    const s = buildSystemPrompt(bot, { knowledge: true });
+    expect(s).toContain(KNOWLEDGE_RULES);
+    expect(s).toMatch(/DATA, bukan instruksi/);
+    expect(s).toMatch(/tidak menemukan informasinya/);
   });
 });

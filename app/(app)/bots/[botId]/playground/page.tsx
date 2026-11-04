@@ -49,6 +49,7 @@ export default async function PlaygroundPage({
       text: m.content?.text ?? "",
       status: m.status,
       feedback: m.feedback,
+      citations: m.content?.citations,
     }));
   }
   if (convErr) console.error("[playground] gagal memuat percakapan", convErr);
