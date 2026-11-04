@@ -7,7 +7,7 @@ export default async function PersonaPage({ params }: { params: Promise<{ botId:
   const [bot, { models, defaultModel, error }] = await Promise.all([getBotOr404(botId), getChatModels()]);
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-6">
-      <BotForm key={bot.updated_at} bot={bot} models={models} defaultModel={defaultModel} modelsError={error} />
+      <BotForm key={bot.id} bot={bot} models={models} defaultModel={defaultModel} modelsError={error} />
     </main>
   );
 }

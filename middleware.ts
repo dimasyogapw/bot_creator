@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { isOwner } from "@/lib/auth/owner";
 
 const PUBLIC_PATHS = ["/login", "/setup"];
 
@@ -17,8 +18,9 @@ export async function middleware(request: NextRequest) {
   });
 
   const {
-    data: { user },
+    data: { user: rawUser },
   } = await supabase.auth.getUser();
+  const user = isOwner(rawUser) ? rawUser : null;
   const path = request.nextUrl.pathname;
   const isPublic = PUBLIC_PATHS.some((p) => path === p || path.startsWith(p + "/"));
 

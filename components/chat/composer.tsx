@@ -46,7 +46,7 @@ export function Composer({ onSend, onStop, streaming, disabled }: { onSend: (t: 
             submit();
           }
         }}
-        placeholder="Ketik pesan... (Enter kirim, Shift+Enter baris baru)"
+        placeholder="Ketik pesan..."
         className="max-h-[200px] min-h-11 flex-1 resize-none bg-transparent px-2 py-2.5 text-base outline-none placeholder:text-muted-foreground sm:min-h-9 sm:py-1.5 md:text-sm"
       />
       {streaming ? (

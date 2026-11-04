@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient, ownerExists } from "@/lib/supabase/admin";
+import { isOwner, OWNER_ROLE } from "./owner";
 
 export type AuthState = { error?: string } | undefined;
 
@@ -16,10 +17,15 @@ export async function login(_: AuthState, formData: FormData): Promise<AuthState
   const parsed = loginSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword(parsed.data);
+  const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) {
     console.error("[auth] login gagal", error.message);
     return { error: "Email atau password salah." };
+  }
+  if (!isOwner(data.user)) {
+    await supabase.auth.signOut();
+    console.error("[auth] login ditolak: akun bukan owner", data.user?.id);
+    return { error: "Akun ini tidak punya akses ke dashboard." };
   }
   redirect("/");
 }
@@ -46,6 +52,7 @@ export async function setupOwner(_: AuthState, formData: FormData): Promise<Auth
       email: parsed.data.email,
       password: parsed.data.password,
       email_confirm: true,
+      app_metadata: { role: OWNER_ROLE },
     });
     if (error) throw error;
   } catch (e) {

@@ -13,7 +13,7 @@ function SheetContent({ className, children, ...props }: React.ComponentProps<ty
       <P.Overlay className="fixed inset-0 z-50 bg-black/50 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
       <P.Content
         className={cn(
-          "fixed inset-y-0 right-0 z-50 flex h-full w-[min(24rem,100%-2rem)] flex-col gap-4 overflow-y-auto border-l bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=open]:slide-in-from-right data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right",
+          "fixed inset-y-0 right-0 z-50 flex h-full w-[calc(100%-2.5rem)] max-w-sm flex-col gap-4 overflow-y-auto border-l bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=open]:slide-in-from-right data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right",
           className,
         )}
         {...props}

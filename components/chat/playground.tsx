@@ -62,6 +62,18 @@ export function Playground({
     convRef.current = conversationId;
   }, [conversationId]);
 
+  // Pindah percakapan lewat riwayat: muat ulang pesan dari server.
+  // Jika percakapan baru dibuat dari sini (id sama), state lokal dipertahankan
+  // supaya tidak ada klik (feedback, salin) yang hilang karena komponen dibuat ulang.
+  useEffect(() => {
+    if (initialConversationId !== convRef.current && !abortRef.current) {
+      convRef.current = initialConversationId;
+      setConversationId(initialConversationId);
+      setMessages(initialMessages);
+      setError(null);
+    }
+  }, [initialConversationId, initialMessages]);
+
   // Auto-scroll: ikuti jawaban hanya jika pengguna berada di bawah.
   const stickRef = useRef(true);
   useEffect(() => {
@@ -253,7 +265,7 @@ export function Playground({
           )}
           <div className="mx-auto max-w-3xl">
             <Composer onSend={send} onStop={() => abortRef.current?.abort()} streaming={streaming} disabled={!!loadError} />
-            <p className="mt-2 text-center text-xs text-muted-foreground">Playground: percakapan tersimpan dan bisa dilihat lagi.</p>
+            <p className="mt-2 text-center text-xs text-muted-foreground"><span className="hidden sm:inline">Enter untuk kirim, Shift+Enter untuk baris baru. </span>Percakapan playground tersimpan.</p>
           </div>
         </div>
       </section>
@@ -283,13 +295,14 @@ function SettingsPanel({
   const [saving, start] = useTransition();
   const dirty = v.model !== bot.model || v.temperature !== Number(bot.temperature) || v.max_tokens !== bot.max_tokens;
 
+  // grid-cols-1 = minmax(0,1fr): judul percakapan panjang tidak melebarkan panel.
   return (
-    <div className="grid gap-6">
+    <div className="grid grid-cols-1 gap-6">
       <Button variant="outline" onClick={onNewChat} className="hidden lg:inline-flex">
         <MessageSquarePlus /> Chat baru
       </Button>
 
-      <div className="grid gap-4">
+      <div className="grid grid-cols-1 gap-4">
         <h3 className="text-sm font-semibold">Model</h3>
         <div className="grid gap-2">
           <Label htmlFor="pg-model">Model</Label>
@@ -322,12 +335,12 @@ function SettingsPanel({
         </Link>
       </div>
 
-      <div className="grid gap-2">
+      <div className="grid grid-cols-1 gap-2">
         <h3 className="text-sm font-semibold">Riwayat playground</h3>
         {conversations.length === 0 ? (
           <p className="text-sm text-muted-foreground">Belum ada percakapan.</p>
         ) : (
-          <ul className="grid gap-0.5">
+          <ul className="grid grid-cols-1 gap-0.5">
             {conversations.map((c) => (
               <li key={c.id}>
                 <Link

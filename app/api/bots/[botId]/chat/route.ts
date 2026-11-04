@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { getUser } from "@/lib/supabase/server";
 import { runBot, type BotEvent } from "@/lib/bot/runBot";
 
 export const runtime = "nodejs";
@@ -27,9 +27,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ botId: string 
     return json({ error: "Format permintaan salah." }, 400);
   }
 
-  const db = await createClient();
-  const { data: auth } = await db.auth.getUser();
-  if (!auth.user) return json({ error: "Sesi berakhir. Silakan login lagi." }, 401);
+  const { supabase: db, user } = await getUser();
+  if (!user) return json({ error: "Sesi berakhir. Silakan login lagi." }, 401);
 
   const abort = new AbortController();
   req.signal.addEventListener("abort", () => abort.abort());

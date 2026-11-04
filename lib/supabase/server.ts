@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabasePublicEnv } from "./env";
+import { isOwner } from "@/lib/auth/owner";
 
 /** Client Supabase atas nama owner yang login (tunduk pada RLS). */
 export async function createClient(): Promise<SupabaseClient> {
@@ -25,5 +26,6 @@ export async function createClient(): Promise<SupabaseClient> {
 export async function getUser() {
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
-  return { supabase, user: data.user };
+  // Hanya owner yang dianggap login.
+  return { supabase, user: isOwner(data.user) ? data.user : null };
 }

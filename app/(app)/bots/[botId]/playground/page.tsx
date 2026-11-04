@@ -55,7 +55,6 @@ export default async function PlaygroundPage({
 
   return (
     <Playground
-      key={activeId ?? "new"}
       bot={{
         id: bot.id,
         name: bot.name,

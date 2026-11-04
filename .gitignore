@@ -8,3 +8,5 @@ playwright-report/
 test-results/
 .DS_Store
 *.tsbuildinfo
+tests/e2e/.test-user.json
+tests/e2e/screenshots/

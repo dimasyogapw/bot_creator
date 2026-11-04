@@ -43,3 +43,12 @@ describe("persona", () => {
     expect(() => parsePersonaJson("maaf saya tidak bisa")).toThrow();
   });
 });
+
+import { isOwner } from "@/lib/auth/owner";
+describe("isOwner", () => {
+  it("hanya role owner di app_metadata", () => {
+    expect(isOwner({ app_metadata: { role: "owner" } })).toBe(true);
+    expect(isOwner({ app_metadata: {} })).toBe(false);
+    expect(isOwner(null)).toBe(false);
+  });
+});
