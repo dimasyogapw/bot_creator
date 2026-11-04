@@ -8,7 +8,7 @@
   - **Provider default: SumoPod** (`https://ai.sumopod.com/v1`). Cadangan: OpenRouter (`https://openrouter.ai/api/v1`).
   - Semua akses LLM lewat satu modul `lib/llm/provider.ts`. Ganti provider cukup lewat environment variable, tanpa ubah kode lain.
   - Model dipilih per bot dari daftar model yang diambil dari endpoint `/models` provider (jangan hardcode nama model).
-  - Default bot: model Claude Sonnet terbaru yang tersedia di provider. Tugas ringan (ringkasan, ekstraksi memory, judul percakapan): model Claude Haiku terbaru. Nama model diatur di env `LLM_DEFAULT_MODEL` dan `LLM_LIGHT_MODEL`.
+  - Default bot: **Claude Haiku 5.5** (`claude-haiku-5-5`), diputuskan 2026-11-04 setelah uji banding 7 model (lihat PROGRESS.md). Model bisa diganti per bot kapan saja. Tugas ringan (ringkasan, ekstraksi memory, judul percakapan) juga memakai Haiku. Nama model diatur di env `LLM_DEFAULT_MODEL` dan `LLM_LIGHT_MODEL`.
 - **Embedding**: endpoint `/embeddings` di provider yang sama (SumoPod). Nama model dan dimensi vektor diatur lewat env `EMBEDDING_MODEL` dan `EMBEDDING_DIMENSIONS`. Jika SumoPod tidak mendukung embedding dengan baik (hasil tes fase 1), pakai Voyage AI sebagai cadangan.
 
 ## Kebutuhan wajib dari provider (dites di fase 1 dengan `npm run check:provider`)
