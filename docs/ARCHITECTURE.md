@@ -22,6 +22,14 @@ Jika poin 3 atau 4 gagal, berhenti dan laporkan ke owner sebelum lanjut.
 - **Validasi**: Zod untuk semua input API.
 - **Test**: Vitest (unit), Playwright (end-to-end).
 
+## Keputusan hosting (ditetapkan 2026-11-04)
+- Status pemakaian: **testing pribadi owner**, belum untuk bisnis.
+- Fase 1 sampai 4: jalan lokal saja (`npm run dev`), tanpa hosting.
+- Fase 5: deploy ke **Vercel paket Hobby (gratis)**. Region fungsi: Singapura (`sin1`), dekat dengan Supabase.
+- Proses panjang (olah dokumen knowledge, ekstraksi memory) harus dirancang aman terhadap batas waktu fungsi Vercel: pecah jadi langkah kecil atau antrean, jangan satu proses panjang.
+- Jangan menulis kode yang mengunci ke fitur khusus Vercel, supaya bisa pindah ke VPS (Hostinger KVM 2 + Coolify, atau SumoPod) tanpa tulis ulang.
+- Tinjau ulang keputusan ini jika bot mulai dipakai untuk bisnis atau butuh n8n/WhatsApp di server yang sama.
+
 ## Prinsip
 1. Semua panggilan LLM dan embedding hanya dari server (Route Handler / Server Action). Tidak ada API key di client.
 2. Satu fungsi inti `runBot(botId, conversationId, userMessage)` yang dipakai oleh SEMUA channel (playground, link publik, widget, Telegram, WhatsApp). Channel hanya adapter.
