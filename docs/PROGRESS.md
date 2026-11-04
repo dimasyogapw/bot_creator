@@ -3,7 +3,7 @@
 | Fase | Status | Catatan |
 |---|---|---|
 | 0 Persiapan | belum | ikuti docs/SETUP.md |
-| 1 Fondasi + playground | selesai (menunggu tes manual owner) | 1 migrasi menunggu persetujuan, lihat di bawah |
+| 1 Fondasi + playground | **selesai** (disetujui owner 2026-11-04) | live di https://bot-creator-three.vercel.app |
 | 2 Knowledge | belum | |
 | 3 Percakapan + memory | belum | |
 | 4 Skills | belum | |
@@ -15,6 +15,7 @@
 - 2026-11-04: Provider LLM default SumoPod, cadangan OpenRouter.
 - 2026-11-04: Hosting: lokal untuk fase 1 sampai 4, Vercel Hobby mulai fase 5 (testing pribadi). Lihat docs/ARCHITECTURE.md.
 - 2026-11-04 (revisi): Vercel Hobby dipakai mulai fase 1, karena laptop owner tidak bisa menjalankan aplikasi. Region `sin1`. Langkah di docs/SETUP.md bagian F.
+- 2026-11-04: Model default bot diganti dari Sonnet ke Haiku 5.5 (biaya sekitar 1/20).
 - 2026-11-04: Akun owner dibuat owner sendiri di dashboard Supabase (password tidak pernah lewat chat), lalu role owner dipasang oleh Claude Code.
 
 ## Hasil tes provider SumoPod (2026-11-04, `npm run check:provider`)
@@ -60,5 +61,20 @@ Semua 6 kebutuhan LULUS dengan `claude-sonnet-5-5`:
 - `npm run dev` + Playwright: halaman login dan daftar bot tampil di 1440px dan 375px, tanpa error di browser.
 - Akun owner BELUM dibuat. Migrasi `model_prices_owner_policy` masih BELUM diterapkan.
 - Akibat batasan laptop, tes manual owner di `localhost` tidak mungkin. Keputusan hosting (lokal untuk fase 1 sampai 4) perlu ditinjau ulang oleh owner.
+
+### Uji banding model (2026-11-04)
+Persona travel umroh, 5 uji (jawab dari data, bilang tidak tahu, tolak topik luar, tolak prompt injection, tool calling). Biaya dari angka `cost` SumoPod.
+
+| Model | USD per 5 uji | Token pertama | Lulus |
+|---|---|---|---|
+| claude-sonnet-5-5 | 0,0204 | ~2,3 dtk | 5/5 |
+| claude-haiku-5-5 | 0,0010 | ~1,6 dtk | 5/5 |
+| deepseek-v4-flash | 0,0008 | ~2,6 dtk | 5/5 |
+| qwen3.8-flash | 0,0009 | ~3,1 dtk | 5/5 |
+| deepseek-v4-pro | 0,0044 | ~3,8 dtk | 5/5 |
+| gpt-5.4-mini | 0,0055 | ~2,6 dtk | 4/5 (menulis kode Python di luar topik) |
+| gemini/gemini-3.5-flash | 0,0113 | ~4,3 dtk | 5/5 |
+
+Keputusan: default bot `claude-haiku-5-5` (murah, tercepat, prompt caching jalan). Cadangan: `deepseek-v4-flash`. Sampel kecil; dievaluasi ulang dengan eval set di fase 6.
 
 (diisi Claude Code di akhir tiap fase)
