@@ -26,8 +26,9 @@ Aturan emas: **API key dan password tidak pernah ditempel di chat Claude Code da
 ### A3. GitHub
 Repo `dimasyogapw/bot_creator` sudah ada dan berisi dokumen proyek ini. Tidak perlu apa-apa lagi.
 
-### A4. Nanti saja (tidak dibutuhkan sekarang)
-- **Vercel**: baru di fase 5 (link publik, widget).
+### A4. Vercel (dipakai mulai fase 1, lihat bagian F)
+
+### A5. Nanti saja (tidak dibutuhkan sekarang)
 - **Telegram BotFather**: fase 7.
 - **OpenRouter**: hanya jika SumoPod gagal tes di fase 1.
 
@@ -96,3 +97,18 @@ Daftar final mengikuti `.env.example` yang dibuat Claude Code di fase 1.
 - [ ] Project Supabase sudah jadi, Project URL + publishable key + secret key sudah dicatat
 - [ ] Tempat kerja siap (VS Code dengan repo ter-clone, atau environment claude.ai/code sudah diisi)
 - [ ] Sudah membaca `prompts/PLAYBOOK.md` bagian "Pola setiap fase"
+
+---
+
+## F. Deploy ke Vercel (paket Hobby, gratis)
+Aplikasi dibuka dari alamat online Vercel karena tidak bisa dijalankan di laptop owner.
+
+1. Buka vercel.com, **Sign Up** dengan akun GitHub (pilih paket **Hobby**).
+2. Klik **Add New** lalu **Project**. Jika repo `bot_creator` tidak muncul, klik **Adjust GitHub App Permissions** dan beri akses ke repo `dimasyogapw/bot_creator`.
+3. Klik **Import** di repo `bot_creator`. Framework terdeteksi otomatis sebagai **Next.js**. Jangan ubah Build Command.
+4. Buka bagian **Environment Variables** dan isi variabel dari bagian C (nilainya sama dengan yang ada di environment Claude Code web). `EMBEDDING_MODEL` dan `EMBEDDING_DIMENSIONS` boleh dikosongkan dulu.
+5. Klik **Deploy**, tunggu sampai muncul tulisan selamat dan alamat seperti `https://bot-creator-xxxx.vercel.app`.
+6. Di Supabase: **Authentication** lalu **URL Configuration**. Isi **Site URL** dengan alamat Vercel tadi, lalu **Save**.
+7. Berikan alamat Vercel ke Claude Code agar dicek dengan Playwright.
+
+Catatan: Vercel memasang versi dari branch utama (`main`). Pekerjaan baru masuk ke `main` lewat pull request yang Anda setujui (merge) di GitHub.
