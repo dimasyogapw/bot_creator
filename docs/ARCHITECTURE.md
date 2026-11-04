@@ -22,10 +22,12 @@ Jika poin 3 atau 4 gagal, berhenti dan laporkan ke owner sebelum lanjut.
 - **Validasi**: Zod untuk semua input API.
 - **Test**: Vitest (unit), Playwright (end-to-end).
 
-## Keputusan hosting (ditetapkan 2026-11-04)
+## Keputusan hosting (ditetapkan 2026-11-04, diperbarui 2026-11-04)
 - Status pemakaian: **testing pribadi owner**, belum untuk bisnis.
-- Fase 1 sampai 4: jalan lokal saja (`npm run dev`), tanpa hosting.
-- Fase 5: deploy ke **Vercel paket Hobby (gratis)**. Region fungsi: Singapura (`sin1`), dekat dengan Supabase.
+- **Mulai fase 1**: deploy ke **Vercel paket Hobby (gratis)**. Region fungsi: Singapura (`sin1`, diatur di `vercel.json`), dekat dengan Supabase.
+  Alasan perubahan: laptop owner memblokir file native hasil npm (Windows Application Control), jadi aplikasi tidak bisa dijalankan lokal dan owner butuh URL online untuk tes manual.
+- Eksekusi kode (lint, test, build, Playwright) dikerjakan di Claude Code web. Laptop owner hanya `git pull` dan membaca.
+- Sebelum fase 5, dashboard di Vercel hanya bisa dimasuki akun ber-role owner, dan belum ada endpoint publik.
 - Proses panjang (olah dokumen knowledge, ekstraksi memory) harus dirancang aman terhadap batas waktu fungsi Vercel: pecah jadi langkah kecil atau antrean, jangan satu proses panjang.
 - Jangan menulis kode yang mengunci ke fitur khusus Vercel, supaya bisa pindah ke VPS (Hostinger KVM 2 + Coolify, atau SumoPod) tanpa tulis ulang.
 - Tinjau ulang keputusan ini jika bot mulai dipakai untuk bisnis atau butuh n8n/WhatsApp di server yang sama.

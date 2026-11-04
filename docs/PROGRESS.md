@@ -14,6 +14,8 @@
 ## Keputusan penting
 - 2026-11-04: Provider LLM default SumoPod, cadangan OpenRouter.
 - 2026-11-04: Hosting: lokal untuk fase 1 sampai 4, Vercel Hobby mulai fase 5 (testing pribadi). Lihat docs/ARCHITECTURE.md.
+- 2026-11-04 (revisi): Vercel Hobby dipakai mulai fase 1, karena laptop owner tidak bisa menjalankan aplikasi. Region `sin1`. Langkah di docs/SETUP.md bagian F.
+- 2026-11-04: Akun owner dibuat owner sendiri di dashboard Supabase (password tidak pernah lewat chat), lalu role owner dipasang oleh Claude Code.
 
 ## Hasil tes provider SumoPod (2026-11-04, `npm run check:provider`)
 Semua 6 kebutuhan LULUS dengan `claude-sonnet-5-5`:

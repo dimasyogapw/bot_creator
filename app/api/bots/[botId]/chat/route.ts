@@ -4,6 +4,8 @@ import { runBot, type BotEvent } from "@/lib/bot/runBot";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// Batas waktu jawaban streaming (detik). Dipatuhi Vercel; diabaikan di server lain.
+export const maxDuration = 60;
 
 const bodySchema = z
   .object({
