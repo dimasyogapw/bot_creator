@@ -7,7 +7,7 @@
 | 2 Knowledge | **selesai, menunggu review owner** (PR ke main) | DoD 1 sampai 5 lulus di test otomatis |
 | 3 Percakapan + memory | **selesai** (PR #5 di-merge owner 2026-11-05) | DoD 1 sampai 6 lulus di Production |
 | 4 Skills | **selesai** (PR #7 di-merge owner 2026-11-05) | DoD 1 sampai 9 lulus; Production 27 lulus |
-| 5 Publikasi | **selesai, menunggu review owner** (PR ke main) | DoD 1 sampai 8 lulus lokal |
+| 5 Publikasi | **selesai** (PR #8, #9, #10 di-merge owner 2026-11-05) | DoD 1 sampai 8 lulus di Production |
 | 6 Evals + analytics | belum | |
 | 7 Telegram / WhatsApp | belum | |
 
@@ -228,6 +228,11 @@ Keputusan: default bot `claude-haiku-5-5` (murah, tercepat, prompt caching jalan
   8. Percakapan publik muncul di tab Percakapan dengan channel "Link publik" / "Widget".
 - Keamanan: advisor security bersih (kecuali saran lama leaked password protection; info "RLS tanpa policy" di `rate_limits` disengaja agar hanya server). Tanpa login ditolak di `rate_limits`, `hit_rate_limit`, `bot_public_usage_today`. Kunci rahasia tidak ada di file browser.
 
+- Setelah merge, test ke Production menemukan 2 bug yang lolos di lokal, keduanya sudah diperbaiki:
+  1. (PR #9) Jawaban "tidak ditemukan" konfigurasi widget disimpan CDN Vercel 60 detik, jadi widget baru muncul sekitar 1 menit setelah publikasi. Kini 404 tidak di-cache.
+  2. (PR #10) Teks yang diketik sebelum halaman widget/link publik siap terhapus. Kini kolom ketik dikunci ("Memuat...") sampai siap. Test diperketat agar pesan sambutan tidak dianggap jawaban.
+- Test penuh ke Production setelah perbaikan: 33 lulus (semua DoD fase 5), 3 dilewati (test webhook yang butuh server API tiruan lokal; lulus di lokal). Log error Production hanya 2 penolakan login yang dipicu test. Owner mencoba link publik di incognito: berhasil.
+
 ### Belum / catatan
 - Batas biaya harian hanya menghitung jawaban bot; biaya ekstraksi memory dan ringkasan belum ikut (fase 6). Biaya sebenarnya bisa sedikit di atas batas, dan beberapa permintaan yang berjalan bersamaan bisa melewati batas sedikit.
 - Endpoint jempol dan riwayat pengunjung belum dibatasi rate limit (tidak memanggil model, hanya database).
@@ -239,5 +244,17 @@ Keputusan: default bot `claude-haiku-5-5` (murah, tercepat, prompt caching jalan
 - Batas harian hanya untuk channel publik, supaya pengujian owner di Playground tidak terblokir.
 - Domain widget boleh ditulis dengan `http://` untuk situs yang belum https (ditemukan saat menyusun test: aturan tanpa skema hanya cocok dengan https di Production).
 - Migrasi fase 5 yang sudah diterapkan ke Supabase: `phase5_publish`.
+
+## Catatan untuk sesi berikutnya (ditulis 2026-11-05)
+- **Lingkungan**: semua eksekusi (npm, test, build, Playwright) di Claude Code web. Laptop owner tidak bisa menjalankan aplikasi. Owner tidak membaca kode; beri langkah bernomor untuk tindakan manual.
+- **Alamat**: Production `https://bot-creator-three.vercel.app`. Preview per branch dilindungi login Vercel (pengunjung tanpa akun Vercel tidak bisa membuka). Tes sebagai pengunjung harus di Production.
+- **Supabase**: project `Bot-Creator`, id `dyawcgbeqqsyhoyatrhz` (region Singapura). Migrasi diterapkan lewat connector Supabase (`apply_migration`); statement yang menghapus sesuatu (drop/delete) memunculkan dialog konfirmasi untuk owner, jadi hindari `drop` jika bisa (pakai `alter` / `create or replace`).
+- **Vercel**: project `bot-creator` (`prj_45xTd4yEElLLPf9ogxPOUbeU42fX`), team `team_fZutuL44TW0sS8CD0oP0YzAM`. Akses connector ke team sudah diizinkan owner.
+- **Test lokal**: `npm run build`, lalu jalankan server dengan `E2E_ALLOW_PRIVATE_HOSTS=localhost npm run start -- -p 3100` (izin webhook ke server API tiruan; jangan pernah di Vercel), lalu `npx playwright test`. Matikan server lama dengan `pkill -f next-server` sebelum build ulang (server lama yang masih jalan memakai file build lama dan membuat semua test gagal).
+- **Test ke Production**: `E2E_BASE_URL=https://bot-creator-three.vercel.app npx playwright test` (tanpa server lokal). Test webhook otomatis dilewati di mode ini; test tambah URL / baca halaman web hanya jalan di mode ini (Claude Code web memblokir situs luar).
+- **Akun test**: dibuat otomatis per run (`tests/e2e/global-setup.ts`), dihapus di teardown beserta file storage-nya.
+- **Vitest 5**: error yang dilempar dari dalam fungsi `vi.fn()` dilaporkan sebagai kegagalan test walau ditangkap kode. Untuk menguji jalur error jaringan, pakai panggilan sungguhan ke domain `.invalid` (lihat `tests/unit/skills-net.test.ts`).
+- **Biaya yang belum tercatat** (untuk fase 6): ekstraksi memory, ringkasan percakapan, embedding knowledge, asisten persona, tombol "Tes skill". Hanya jawaban bot yang tercatat di `messages.cost_usd`, dan batas biaya harian fase 5 hanya menghitung itu.
+- **Bahan fase 6**: jempol bawah tersimpan di `messages.feedback`, tab Percakapan sudah punya filter "Ada jempol bawah" (titik awal "Buat test case dari percakapan ini"). Contoh eval di `evals/cases.example.jsonl`.
 
 (diisi Claude Code di akhir tiap fase)
