@@ -4,7 +4,7 @@ import { getUser } from "@/lib/supabase/server";
 import type { KnowledgeSource } from "@/lib/db/types";
 import { createSourceSchema, fileValidationError, MAX_SOURCES_PER_BOT, mimeFor, safeFileName } from "@/lib/knowledge/schema";
 import { assertAllowedUrl } from "@/lib/knowledge/fetch-url";
-import { KnowledgeError } from "@/lib/knowledge/extract";
+import { NetError } from "@/lib/net/safe-http";
 import { BUCKET, SOURCE_COLUMNS } from "@/lib/knowledge/process";
 
 export const runtime = "nodejs";
@@ -55,7 +55,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ botId: string 
       try {
         assertAllowedUrl(input.url);
       } catch (e) {
-        if (e instanceof KnowledgeError) return json({ error: e.userMessage }, 400);
+        if (e instanceof NetError) return json({ error: e.userMessage }, 400);
         throw e;
       }
       const { data: source, error } = await db

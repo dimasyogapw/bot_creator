@@ -42,12 +42,18 @@ export function MessageItem({
       <BotAvatar name={bot.name} url={bot.avatar_url} className="mt-0.5 size-8" />
       <div className="min-w-0 flex-1">
         {m.text && <Markdown text={m.text} />}
-        {m.status === "streaming" && m.searching && (
-          <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground" role="status" data-testid="searching">
-            <Search className="size-3.5 animate-pulse motion-reduce:animate-none" /> Mencari di knowledge: <span className="truncate italic">&ldquo;{m.searching}&rdquo;</span>
+        {m.status === "streaming" && m.activity && (
+          <p className="mt-1 flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground" role="status" data-testid="searching">
+            <Search className="size-3.5 shrink-0 animate-pulse motion-reduce:animate-none" /> {m.activity.label}
+            {m.activity.detail && (
+              <>
+                : <span className="truncate italic">&ldquo;{m.activity.detail}&rdquo;</span>
+              </>
+            )}
+            ...
           </p>
         )}
-        {!m.text && !m.searching && (
+        {!m.text && !m.activity && (
           <div className="flex h-7 items-center gap-1" aria-label="Bot sedang mengetik">
             {[0, 1, 2].map((i) => (
               <span key={i} className="size-1.5 animate-bounce rounded-full bg-muted-foreground/60" style={{ animationDelay: `${i * 120}ms` }} />

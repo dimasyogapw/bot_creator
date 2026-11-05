@@ -7,14 +7,15 @@ export interface UIMessage {
   status: "complete" | "stopped" | "error" | "streaming";
   feedback: -1 | 0 | 1;
   citations?: Citation[];
-  /** Kueri yang sedang dicari di knowledge (hanya saat streaming). */
-  searching?: string;
+  /** Skill yang sedang dipakai (hanya saat streaming), mis. "Mencari di knowledge". */
+  activity?: { label: string; detail?: string };
+  images?: { url: string }[];
 }
 
 export type StreamEvent =
   | { type: "start"; conversationId: string; userMessageId: string | null }
   | { type: "delta"; text: string }
-  | { type: "tool"; name: string; query: string }
+  | { type: "tool"; name: string; label: string; detail?: string }
   | { type: "citations"; citations: Citation[] }
   | { type: "done"; message: { id: string; content: { text: string; citations?: Citation[] }; status: "complete" | "stopped" | "error"; feedback: -1 | 0 | 1 } }
   | { type: "error"; message: string };

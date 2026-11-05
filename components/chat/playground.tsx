@@ -129,9 +129,9 @@ export function Playground({
               setMessages((ms) => ms.map((m) => (m.id.startsWith("tmp-u-") ? { ...m, id: uid } : m)));
             }
           } else if (ev.type === "delta") {
-            patch((m) => ({ ...m, text: m.text + ev.text, searching: undefined }));
+            patch((m) => ({ ...m, text: m.text + ev.text, activity: undefined }));
           } else if (ev.type === "tool") {
-            patch((m) => ({ ...m, searching: ev.query }));
+            patch((m) => ({ ...m, activity: { label: ev.label, detail: ev.detail } }));
           } else if (ev.type === "citations") {
             patch((m) => ({ ...m, citations: ev.citations }));
           } else if (ev.type === "done") {

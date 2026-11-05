@@ -24,8 +24,9 @@ import { runBot, type BotEvent } from "@/lib/bot/runBot";
 
 /** Supabase palsu minimal di memori. */
 type Row = Record<string, unknown>;
-function fakeDb(state: { bots: Row[]; conversations: Row[]; messages: Row[]; model_prices: Row[]; end_users?: Row[] }) {
+function fakeDb(state: { bots: Row[]; conversations: Row[]; messages: Row[]; model_prices: Row[]; end_users?: Row[]; skills?: Row[] }) {
   state.end_users ??= [];
+  state.skills ??= [];
   let seq = 0;
   const now = () => new Date(Date.now() + seq++).toISOString();
   return {
@@ -167,7 +168,7 @@ describe("runBot", () => {
 
     const events = await collect(runBot({ db: fakeDb(state) as never, botId: "b1", userMessage: "berapa harga paket A?", channel: "playground" }));
     expect(events.map((e) => e.type)).toEqual(["start", "tool", "citations", "delta", "done"]);
-    expect(events[1]).toEqual({ type: "tool", name: "search_knowledge", query: "harga paket A" });
+    expect(events[1]).toEqual({ type: "tool", name: "search_knowledge", label: "Mencari di knowledge", detail: "harga paket A" });
 
     const first = chatStream.mock.calls[0][0];
     expect(first.tools[0].function.name).toBe("search_knowledge");
