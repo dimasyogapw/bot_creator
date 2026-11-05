@@ -6,6 +6,15 @@ vi.mock("@/lib/llm/provider", () => ({ chatStream: (...a: unknown[]) => chatStre
 // Knowledge dipalsukan: default bot tanpa knowledge.
 const hasReadyKnowledge = vi.fn();
 const searchKnowledge = vi.fn();
+// Memory dan ringkasan dipalsukan.
+const loadMemories = vi.fn();
+const extractMemories = vi.fn();
+const maybeSummarize = vi.fn();
+vi.mock("@/lib/memory/extract", () => ({
+  loadMemories: (...a: unknown[]) => loadMemories(...a),
+  extractMemories: (...a: unknown[]) => extractMemories(...a),
+}));
+vi.mock("@/lib/bot/summary", () => ({ maybeSummarize: (...a: unknown[]) => maybeSummarize(...a) }));
 vi.mock("@/lib/knowledge/search", () => ({
   hasReadyKnowledge: (...a: unknown[]) => hasReadyKnowledge(...a),
   searchKnowledge: (...a: unknown[]) => searchKnowledge(...a),
@@ -14,21 +23,28 @@ vi.mock("@/lib/knowledge/search", () => ({
 import { runBot, type BotEvent } from "@/lib/bot/runBot";
 
 /** Supabase palsu minimal di memori. */
-function fakeDb(state: { bots: Record<string, unknown>[]; conversations: Record<string, unknown>[]; messages: Record<string, unknown>[]; model_prices: Record<string, unknown>[] }) {
+type Row = Record<string, unknown>;
+function fakeDb(state: { bots: Row[]; conversations: Row[]; messages: Row[]; model_prices: Row[]; end_users?: Row[] }) {
+  state.end_users ??= [];
   let seq = 0;
   const now = () => new Date(Date.now() + seq++).toISOString();
   return {
     from(table: keyof typeof state) {
-      const filters: [string, unknown][] = [];
-      let op: "select" | "insert" | "update" | "delete" = "select";
+      const filters: ((r: Row) => boolean)[] = [];
+      let op: "select" | "insert" | "update" | "delete" | "upsert" = "select";
       let payload: Record<string, unknown> | null = null;
       let order: { col: string; asc: boolean } | null = null;
       let limit = Infinity;
-      const rows = () => state[table].filter((r) => filters.every(([k, v]) => r[k] === v));
+      const rows = () => state[table]!.filter((r) => filters.every((f) => f(r)));
       const exec = () => {
+        if (op === "upsert") {
+          const found = state[table]!.find((r) => r.bot_id === payload!.bot_id && r.channel === payload!.channel && r.external_id === payload!.external_id);
+          if (found) return [Object.assign(found, payload)];
+          op = "insert";
+        }
         if (op === "insert") {
           const row = { id: `${table}-${seq}`, created_at: now(), feedback: 0, status: "complete", ...payload };
-          state[table].push(row);
+          state[table]!.push(row);
           return [row];
         }
         if (op === "update") {
@@ -37,7 +53,7 @@ function fakeDb(state: { bots: Record<string, unknown>[]; conversations: Record<
         }
         if (op === "delete") {
           const del = rows();
-          state[table] = state[table].filter((r) => !del.includes(r));
+          state[table] = state[table]!.filter((r) => !del.includes(r));
           return [];
         }
         let out = rows();
@@ -48,8 +64,10 @@ function fakeDb(state: { bots: Record<string, unknown>[]; conversations: Record<
         select: () => q,
         insert: (p: Record<string, unknown>) => ((op = "insert"), (payload = p), q),
         update: (p: Record<string, unknown>) => ((op = "update"), (payload = p), q),
+        upsert: (p: Record<string, unknown>) => ((op = "upsert"), (payload = p), q),
+        gt: (k: string, v: unknown) => (filters.push((r) => String(r[k]) > String(v)), q),
         delete: () => ((op = "delete"), q),
-        eq: (k: string, v: unknown) => (filters.push([k, v]), q),
+        eq: (k: string, v: unknown) => (filters.push((r) => r[k] === v), q),
         order: (col: string, o: { ascending: boolean }) => ((order = { col, asc: o.ascending }), q),
         limit: (n: number) => ((limit = n), q),
         maybeSingle: async () => ({ data: exec()[0] ?? null, error: null }),
@@ -80,6 +98,9 @@ describe("runBot", () => {
     chatStream.mockReset();
     hasReadyKnowledge.mockReset().mockResolvedValue(false);
     searchKnowledge.mockReset();
+    loadMemories.mockReset().mockResolvedValue([]);
+    extractMemories.mockReset().mockResolvedValue({ applied: 0 });
+    maybeSummarize.mockReset().mockResolvedValue(false);
     state = { bots: [bot], conversations: [], messages: [], model_prices: [] };
   });
 
@@ -186,6 +207,61 @@ describe("runBot", () => {
     expect(events.at(-1)?.type).toBe("done");
     expect(chatStream.mock.calls[1][0].messages.at(-1).content).toContain("gagal");
     spy.mockRestore();
+  });
+
+  describe("memory (fase 3)", () => {
+    const owner = { externalId: "owner", displayName: "Owner (playground)" };
+
+    it("membuat end user, menautkan ke percakapan, dan menjadwalkan ekstraksi jika memory aktif", async () => {
+      state.bots[0].memory_enabled = true;
+      loadMemories.mockResolvedValue([{ id: "m1", content: "Nama pengguna Budi" }]);
+      chatStream.mockResolvedValue(fakeStream(["Halo Budi"]));
+      const tasks: (() => Promise<void>)[] = [];
+      await collect(runBot({ db: fakeDb(state) as never, botId: "b1", userMessage: "hai", channel: "playground", endUser: owner, defer: (t) => tasks.push(t) }));
+
+      expect(state.end_users).toHaveLength(1);
+      expect(state.conversations[0].end_user_id).toBe(state.end_users![0].id);
+      const sys = JSON.stringify(chatStream.mock.calls[0][0].messages[0]);
+      expect(sys).toContain("<memori_pengguna>");
+      expect(sys).toContain("Nama pengguna Budi");
+
+      expect(tasks).toHaveLength(2); // ekstraksi memory + ringkasan
+      for (const t of tasks) await t();
+      expect(extractMemories).toHaveBeenCalledWith(expect.objectContaining({ botId: "b1", endUserId: state.end_users![0].id }));
+      expect(maybeSummarize).toHaveBeenCalled();
+    });
+
+    it("memory mati: tidak dibaca dan tidak diekstrak", async () => {
+      state.bots[0].memory_enabled = false;
+      chatStream.mockResolvedValue(fakeStream(["ok"]));
+      const tasks: (() => Promise<void>)[] = [];
+      await collect(runBot({ db: fakeDb(state) as never, botId: "b1", userMessage: "hai", channel: "playground", endUser: owner, defer: (t) => tasks.push(t) }));
+      expect(loadMemories).not.toHaveBeenCalled();
+      expect(JSON.stringify(chatStream.mock.calls[0][0].messages[0])).not.toContain("memori_pengguna");
+      for (const t of tasks) await t();
+      expect(extractMemories).not.toHaveBeenCalled();
+    });
+
+    it("percakapan milik end user lain ditolak", async () => {
+      state.end_users = [{ id: "eu-owner", bot_id: "b1", channel: "playground", external_id: "owner" }];
+      state.conversations.push({ id: "c7", bot_id: "b1", end_user_id: "eu-lain" });
+      const events = await collect(runBot({ db: fakeDb(state) as never, botId: "b1", conversationId: "c7", userMessage: "hai", channel: "playground", endUser: owner }));
+      expect(events).toEqual([{ type: "error", message: "Percakapan tidak ditemukan." }]);
+    });
+
+    it("ringkasan dipakai dan pesan yang sudah diringkas tidak dikirim mentah", async () => {
+      state.conversations.push({ id: "c8", bot_id: "b1", summary: "Pengguna bertanya soal ongkir.", summary_until: "2026-01-01T00:00:01Z" });
+      state.messages.push(
+        { id: "o1", conversation_id: "c8", role: "user", content: { text: "pesan lama" }, created_at: "2026-01-01T00:00:00Z" },
+        { id: "o2", conversation_id: "c8", role: "assistant", content: { text: "jawaban lama" }, created_at: "2026-01-01T00:00:01Z" },
+      );
+      chatStream.mockResolvedValue(fakeStream(["ok"]));
+      await collect(runBot({ db: fakeDb(state) as never, botId: "b1", conversationId: "c8", userMessage: "lanjut", channel: "playground" }));
+      const msgs = chatStream.mock.calls[0][0].messages;
+      expect(JSON.stringify(msgs[0])).toContain("Pengguna bertanya soal ongkir.");
+      expect(JSON.stringify(msgs)).not.toContain("pesan lama");
+      expect(msgs.at(-1)).toEqual({ role: "user", content: "lanjut" });
+    });
   });
 });
 

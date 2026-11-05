@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { getUser } from "@/lib/supabase/server";
-import { runBot, type BotEvent } from "@/lib/bot/runBot";
+import { after } from "next/server";
+import { PLAYGROUND_END_USER, runBot, type BotEvent } from "@/lib/bot/runBot";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,6 +33,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ botId: string 
   const { supabase: db, user } = await getUser();
   if (!user) return json({ error: "Sesi berakhir. Silakan login lagi." }, 401);
 
+  // Pekerjaan background dikumpulkan selama stream, lalu dijalankan setelah respons selesai.
+  const tasks: (() => Promise<void>)[] = [];
+  after(async () => {
+    for (const t of tasks) await t();
+  });
+
   const abort = new AbortController();
   req.signal.addEventListener("abort", () => abort.abort());
   const encoder = new TextEncoder();
@@ -55,6 +62,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ botId: string 
           userMessage: body.message,
           regenerate: body.regenerate,
           channel: "playground",
+          endUser: PLAYGROUND_END_USER,
+          defer: (t) => tasks.push(t),
           signal: abort.signal,
         })) {
           send(event);

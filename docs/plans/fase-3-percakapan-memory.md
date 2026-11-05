@@ -1,4 +1,4 @@
-# Rencana Fase 3: Percakapan + Memory (disusun 2026-11-05, menunggu persetujuan owner)
+# Rencana Fase 3: Percakapan + Memory (disusun 2026-11-05, disetujui owner 2026-11-05)
 
 ## Tujuan
 Owner bisa melihat semua percakapan, dan bot mengingat fakta penting tentang tiap end user antar percakapan.
@@ -13,6 +13,11 @@ Owner bisa melihat semua percakapan, dan bot mengingat fakta penting tentang tia
 4. **Toggle memory per bot** (on/off). Jika off: memory tidak dibaca dan tidak dibuat. Memory lama tidak dihapus otomatis.
 5. **Tab Memory**: daftar end user dan memory-nya, hapus satu memory, hapus semua memory satu end user (dengan konfirmasi).
 6. **Playground**: owner dianggap satu end user tetap per bot ("Owner (playground)"), supaya DoD bisa diuji. Panel setelan menampilkan status memory.
+
+## Keputusan owner (2026-11-05)
+- Memory **mati secara bawaan**, dinyalakan per bot (bot lama juga mati sampai dinyalakan).
+- Hapus percakapan: **belum** di fase ini.
+- Playground: **satu identitas** owner per bot. Pemisahan memory antar end user diuji otomatis.
 
 ## Teknis
 - Migrasi:

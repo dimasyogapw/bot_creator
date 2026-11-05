@@ -5,6 +5,8 @@ import type { Bot, Channel, Citation, Message, ModelPrice } from "@/lib/db/types
 import type { ChatTool } from "@/lib/llm/provider";
 import { hasReadyKnowledge, searchKnowledge } from "@/lib/knowledge/search";
 import { assignCitations, formatToolResult, usedCitations } from "@/lib/knowledge/format";
+import { extractMemories, loadMemories } from "@/lib/memory/extract";
+import { maybeSummarize } from "./summary";
 import { searchArgsSchema } from "@/lib/knowledge/schema";
 import { buildMessages, titleFromMessage, HISTORY_LIMIT } from "./prompt";
 import { computeCostUsd, normalizeUsage, type ProviderUsage } from "./pricing";
@@ -32,8 +34,17 @@ export interface RunBotParams {
   /** Ulangi jawaban terakhir: hapus jawaban bot terakhir, jawab ulang pesan user terakhir. */
   regenerate?: boolean;
   channel: Channel;
+  /** Identitas end user dari channel (playground: owner). Dipakai untuk memory. */
+  endUser?: { externalId: string; displayName?: string | null };
+  /**
+   * Menjadwalkan pekerjaan background (ekstraksi memory, ringkasan) setelah jawaban terkirim.
+   * Disediakan channel (mis. Next.js after()). Tanpa ini, pekerjaan background dilewati.
+   */
+  defer?: (task: () => Promise<void>) => void;
   signal?: AbortSignal;
 }
+
+export const PLAYGROUND_END_USER = { externalId: "owner", displayName: "Owner (playground)" };
 
 export const MAX_TOOL_ITERATIONS = 5;
 
@@ -88,14 +99,40 @@ export async function* runBot(p: RunBotParams): AsyncGenerator<BotEvent> {
     return;
   }
 
-  // 2. Percakapan
+  // 2. End user (untuk memory). Gagal di sini tidak menghentikan chat.
+  let endUserId: string | null = null;
+  if (p.endUser) {
+    const { data: eu, error: euErr } = await db
+      .from("end_users")
+      .upsert(
+        { bot_id: bot.id, channel: p.channel, external_id: p.endUser.externalId, display_name: p.endUser.displayName ?? null, last_seen_at: new Date().toISOString() },
+        { onConflict: "bot_id,channel,external_id" },
+      )
+      .select("id")
+      .single();
+    if (euErr || !eu) console.error("[runBot] gagal menyimpan end user", euErr);
+    else endUserId = eu.id as string;
+  }
+
+  // 3. Percakapan
   let conversationId = p.conversationId ?? null;
+  let summary: string | null = null;
+  let summaryUntil: string | null = null;
   if (conversationId) {
-    const { data: conv } = await db.from("conversations").select("id").eq("id", conversationId).eq("bot_id", bot.id).maybeSingle();
-    if (!conv) {
+    const { data: conv } = await db
+      .from("conversations")
+      .select("id, end_user_id, summary, summary_until")
+      .eq("id", conversationId)
+      .eq("bot_id", bot.id)
+      .maybeSingle<{ id: string; end_user_id: string | null; summary: string | null; summary_until: string | null }>();
+    // Percakapan milik end user lain tidak boleh dilanjutkan.
+    if (!conv || (endUserId && conv.end_user_id && conv.end_user_id !== endUserId)) {
       yield { type: "error", message: "Percakapan tidak ditemukan." };
       return;
     }
+    summary = conv.summary;
+    summaryUntil = conv.summary_until;
+    if (endUserId && !conv.end_user_id) await db.from("conversations").update({ end_user_id: endUserId }).eq("id", conversationId);
   } else {
     if (p.regenerate || !p.userMessage) {
       yield { type: "error", message: "Tidak ada pesan untuk dijawab." };
@@ -103,7 +140,7 @@ export async function* runBot(p: RunBotParams): AsyncGenerator<BotEvent> {
     }
     const { data: conv, error } = await db
       .from("conversations")
-      .insert({ bot_id: bot.id, channel: p.channel, title: titleFromMessage(p.userMessage) })
+      .insert({ bot_id: bot.id, channel: p.channel, title: titleFromMessage(p.userMessage), end_user_id: endUserId })
       .select("id")
       .single();
     if (error || !conv) {
@@ -114,7 +151,7 @@ export async function* runBot(p: RunBotParams): AsyncGenerator<BotEvent> {
     conversationId = conv.id as string;
   }
 
-  // 3. Pesan user / regenerate
+  // 4. Pesan user / regenerate
   let userMessageId: string | null = null;
   if (p.regenerate) {
     const { data: last } = await db
@@ -141,13 +178,15 @@ export async function* runBot(p: RunBotParams): AsyncGenerator<BotEvent> {
 
   yield { type: "start", conversationId: conversationId!, userMessageId };
 
-  // 4. Riwayat
-  const { data: rows, error: histErr } = await db
+  // 5. Riwayat: pesan setelah bagian yang sudah diringkas.
+  let histQ = db
     .from("messages")
     .select("role, content, created_at")
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: false })
     .limit(HISTORY_LIMIT);
+  if (summaryUntil) histQ = histQ.gt("created_at", summaryUntil);
+  const { data: rows, error: histErr } = await histQ;
   if (histErr) {
     console.error("[runBot] gagal mengambil riwayat", histErr);
     yield { type: "error", message: FRIENDLY_ERROR };
@@ -159,7 +198,17 @@ export async function* runBot(p: RunBotParams): AsyncGenerator<BotEvent> {
     return;
   }
 
-  // 5. Knowledge aktif jika bot punya sumber ready (agentic RAG lewat tool).
+  // 6. Memory end user (hanya jika memory bot aktif).
+  let memories: { content: string }[] = [];
+  if (bot.memory_enabled && endUserId) {
+    try {
+      memories = await loadMemories(db, bot.id, endUserId);
+    } catch (e) {
+      console.error("[runBot] gagal memuat memory", e);
+    }
+  }
+
+  // 7. Knowledge aktif jika bot punya sumber ready (agentic RAG lewat tool).
   let knowledgeOn = false;
   try {
     knowledgeOn = await hasReadyKnowledge(db, bot.id);
@@ -167,9 +216,9 @@ export async function* runBot(p: RunBotParams): AsyncGenerator<BotEvent> {
     console.error("[runBot] gagal cek knowledge", e);
   }
   const tools = knowledgeOn ? [SEARCH_KNOWLEDGE_TOOL] : undefined;
-  const messages = buildMessages(bot, history, { knowledge: knowledgeOn });
+  const messages = buildMessages(bot, history, { knowledge: knowledgeOn, memories, summary });
 
-  // 6. Kirim ke model + stream jawaban, dengan loop tool maksimal MAX_TOOL_ITERATIONS.
+  // 8. Kirim ke model + stream jawaban, dengan loop tool maksimal MAX_TOOL_ITERATIONS.
   const t0 = Date.now();
   let ttft: number | undefined;
   let text = "";
@@ -267,7 +316,7 @@ export async function* runBot(p: RunBotParams): AsyncGenerator<BotEvent> {
     return;
   }
 
-  // 7. Simpan jawaban + token, biaya, latensi
+  // 9. Simpan jawaban + token, biaya, latensi
   const { data: price } = await db.from("model_prices").select("*").eq("model", bot.model).maybeSingle<ModelPrice>();
   const n = normalizeUsage(usage);
   const { data: saved, error: saveErr } = await db
@@ -297,6 +346,28 @@ export async function* runBot(p: RunBotParams): AsyncGenerator<BotEvent> {
     return;
   }
   await db.from("conversations").update({ updated_at: new Date().toISOString() }).eq("id", conversationId);
+
+  // 10. Background: ekstraksi memory dan ringkasan riwayat panjang. Error hanya dicatat.
+  if (p.defer) {
+    const convId = conversationId!;
+    if (bot.memory_enabled && endUserId) {
+      const euId = endUserId;
+      p.defer(async () => {
+        try {
+          await extractMemories({ db, botId: bot.id, endUserId: euId, conversationId: convId });
+        } catch (e) {
+          console.error("[runBot] ekstraksi memory gagal", e);
+        }
+      });
+    }
+    p.defer(async () => {
+      try {
+        await maybeSummarize(db, convId);
+      } catch (e) {
+        console.error("[runBot] ringkasan gagal", e);
+      }
+    });
+  }
 
   yield { type: "done", message: saved };
 }

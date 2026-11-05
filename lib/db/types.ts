@@ -12,6 +12,7 @@ export interface Bot {
   max_tokens: number;
   welcome_message: string | null;
   is_public: boolean;
+  memory_enabled: boolean;
   settings: Record<string, unknown>;
   created_at: string;
   updated_at: string;
@@ -23,6 +24,9 @@ export interface Conversation {
   end_user_id: string | null;
   channel: Channel;
   title: string | null;
+  summary: string | null;
+  summary_until: string | null;
+  memory_until: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -86,6 +90,27 @@ export interface KnowledgeSource {
   size_bytes: number | null;
   chunk_count: number | null;
   progress: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EndUser {
+  id: string;
+  bot_id: string;
+  channel: Channel;
+  external_id: string;
+  display_name: string | null;
+  created_at: string;
+  last_seen_at: string;
+}
+
+export interface Memory {
+  id: string;
+  bot_id: string;
+  end_user_id: string;
+  content: string;
+  importance: number;
+  source_conversation_id: string | null;
   created_at: string;
   updated_at: string;
 }
