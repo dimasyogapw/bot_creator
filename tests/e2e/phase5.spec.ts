@@ -47,8 +47,11 @@ async function incognito(browser: Browser) {
 }
 
 async function ask(page: Page, q: string) {
+  // Hitung dulu: pesan sambutan juga berperan "assistant", jangan sampai dianggap jawaban.
+  const before = await page.locator('[data-role="assistant"]').count();
   await page.getByLabel("Ketik pesan").fill(q);
   await page.keyboard.press("Enter");
+  await expect(page.locator('[data-role="assistant"]')).toHaveCount(before + 1);
   const a = page.locator('[data-role="assistant"]').last();
   await expect(a).toHaveAttribute("data-status", "complete", { timeout: 120_000 });
   return a;
@@ -182,7 +185,9 @@ test.describe.serial("Fase 5: publikasi", () => {
     await expect(frame.getByLabel("Ketik pesan")).toBeVisible();
     await frame.getByLabel("Ketik pesan").fill("Halo, apa kalian buka hari Minggu?");
     await frame.getByLabel("Ketik pesan").press("Enter");
+    await expect(frame.locator('[data-role="assistant"]')).toHaveCount(2); // sambutan + jawaban
     await expect(frame.locator('[data-role="assistant"]').last()).toHaveAttribute("data-status", "complete", { timeout: 120_000 });
+    await expect(frame.locator('[data-role="assistant"]').last()).not.toHaveText("");
     await shot(page, "p5-03-widget");
     // Tombol tutup di dalam widget
     await frame.getByRole("button", { name: "Tutup chat" }).click();
