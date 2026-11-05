@@ -158,6 +158,8 @@ export function Composer({
           rows={1}
           value={text}
           maxLength={8000}
+          // Terkunci sampai halaman siap: teks yang diketik sebelum itu akan hilang.
+          disabled={disabled}
           onChange={(e) => setText(e.target.value)}
           onPaste={(e) => {
             const imgs = Array.from(e.clipboardData.files).filter((f) => f.type.startsWith("image/"));
@@ -172,8 +174,8 @@ export function Composer({
               submit();
             }
           }}
-          placeholder="Ketik pesan..."
-          className="max-h-[200px] min-h-11 flex-1 resize-none bg-transparent px-2 py-2.5 text-base outline-none placeholder:text-muted-foreground sm:min-h-9 sm:py-1.5 md:text-sm"
+          placeholder={disabled ? "Memuat..." : "Ketik pesan..."}
+          className="max-h-[200px] min-h-11 flex-1 resize-none bg-transparent px-2 py-2.5 text-base outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed sm:min-h-9 sm:py-1.5 md:text-sm"
         />
         {streaming ? (
           <Button type="button" size="icon" variant="secondary" onClick={onStop} aria-label="Hentikan jawaban">
