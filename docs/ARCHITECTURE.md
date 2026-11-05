@@ -43,7 +43,7 @@ Jika poin 3 atau 4 gagal, berhenti dan laporkan ke owner sebelum lanjut.
 ## Model data (awal, boleh diperbaiki saat plan)
 ```
 bots            id, name, slug, avatar_url, system_prompt, model, temperature,
-                max_tokens, welcome_message, is_public, settings jsonb,
+                max_tokens, welcome_message, is_public, memory_enabled, settings jsonb,
                 created_at, updated_at
 knowledge_sources id, bot_id, type (file|url|text), title, status
                 (uploading|pending|processing|ready|error), error_message, storage_path,
@@ -51,11 +51,13 @@ knowledge_sources id, bot_id, type (file|url|text), title, status
 knowledge_chunks id, source_id, bot_id, chunk_index, content, embedding vector(1536),
                 fts tsvector, metadata jsonb (pages), token_count
 end_users       id, bot_id, channel (playground|web|widget|telegram|whatsapp),
-                external_id, display_name, created_at
-memories        id, bot_id, end_user_id, content, importance, created_at, updated_at
+                external_id, display_name, created_at, last_seen_at
+memories        id, bot_id, end_user_id, content, importance, source_conversation_id,
+                created_at, updated_at
 skills          id, bot_id, type (knowledge_search|http_webhook|...), name,
                 description, config jsonb, enabled
-conversations   id, bot_id, end_user_id, channel, title, created_at
+conversations   id, bot_id, end_user_id, channel, title, summary, summary_until,
+                memory_until, created_at, updated_at
 messages        id, conversation_id, role, content jsonb, tokens_in, tokens_out,
                 cost_usd, latency_ms, feedback (-1|0|1), created_at
 eval_cases      id, bot_id, input, expected_behavior, tags
