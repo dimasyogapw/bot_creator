@@ -3,6 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // Provider LLM dipalsukan: unit test tidak memanggil API sungguhan.
 const chatStream = vi.fn();
 vi.mock("@/lib/llm/provider", () => ({ chatStream: (...a: unknown[]) => chatStream(...a) }));
+// Knowledge dipalsukan: default bot tanpa knowledge.
+const hasReadyKnowledge = vi.fn();
+const searchKnowledge = vi.fn();
+vi.mock("@/lib/knowledge/search", () => ({
+  hasReadyKnowledge: (...a: unknown[]) => hasReadyKnowledge(...a),
+  searchKnowledge: (...a: unknown[]) => searchKnowledge(...a),
+}));
 
 import { runBot, type BotEvent } from "@/lib/bot/runBot";
 
@@ -71,6 +78,8 @@ describe("runBot", () => {
   let state: Parameters<typeof fakeDb>[0];
   beforeEach(() => {
     chatStream.mockReset();
+    hasReadyKnowledge.mockReset().mockResolvedValue(false);
+    searchKnowledge.mockReset();
     state = { bots: [bot], conversations: [], messages: [], model_prices: [] };
   });
 
@@ -118,4 +127,71 @@ describe("runBot", () => {
     const events = await collect(runBot({ db: fakeDb(state) as never, botId: "b1", conversationId: "c9", userMessage: "hai", channel: "playground" }));
     expect(events).toEqual([{ type: "error", message: "Percakapan tidak ditemukan." }]);
   });
+
+  it("tanpa knowledge: tidak mengirim tool", async () => {
+    chatStream.mockResolvedValue(fakeStream(["ok"]));
+    await collect(runBot({ db: fakeDb(state) as never, botId: "b1", userMessage: "hai", channel: "playground" }));
+    expect(chatStream.mock.calls[0][0].tools).toBeUndefined();
+  });
+
+  it("dengan knowledge: memanggil search_knowledge, lalu menjawab dengan sitasi yang tersimpan", async () => {
+    hasReadyKnowledge.mockResolvedValue(true);
+    searchKnowledge.mockResolvedValue([
+      { id: "k1", source_id: "s1", source_title: "Katalog", chunk_index: 0, content: "Harga paket A Rp100.000", metadata: { pages: [2] }, score: 0.03 },
+      { id: "k2", source_id: "s1", source_title: "Katalog", chunk_index: 1, content: "Paket B Rp200.000", metadata: {}, score: 0.02 },
+    ]);
+    chatStream
+      .mockResolvedValueOnce(toolCallStream("call_1", '{"query":"harga paket A"}', { prompt_tokens: 100, completion_tokens: 10, cost: 0.001 }))
+      .mockResolvedValueOnce(fakeStream(["Harga paket A Rp100.000 [1]."], { prompt_tokens: 300, completion_tokens: 20, cost: 0.002 }));
+
+    const events = await collect(runBot({ db: fakeDb(state) as never, botId: "b1", userMessage: "berapa harga paket A?", channel: "playground" }));
+    expect(events.map((e) => e.type)).toEqual(["start", "tool", "citations", "delta", "done"]);
+    expect(events[1]).toEqual({ type: "tool", name: "search_knowledge", query: "harga paket A" });
+
+    const first = chatStream.mock.calls[0][0];
+    expect(first.tools[0].function.name).toBe("search_knowledge");
+    expect(JSON.stringify(first.messages[0])).toContain("search_knowledge");
+    const second = chatStream.mock.calls[1][0];
+    const toolMsg = second.messages.at(-1);
+    expect(toolMsg.role).toBe("tool");
+    expect(toolMsg.tool_call_id).toBe("call_1");
+    expect(toolMsg.content).toContain('<document index="1" source="Katalog" page="hal. 2">');
+    expect(second.messages.at(-2).tool_calls[0].function.name).toBe("search_knowledge");
+
+    const saved = state.messages.find((m) => m.role === "assistant")!;
+    const content = saved.content as { text: string; citations: { n: number }[]; searches: string[] };
+    expect(content.citations.map((c) => c.n)).toEqual([1]); // [2] tidak disebut, tidak disimpan
+    expect(content.searches).toEqual(["harga paket A"]);
+    expect(saved).toMatchObject({ tokens_in: 400, tokens_out: 30, cost_usd: 0.003 });
+  });
+
+  it("loop tool berhenti setelah 5 iterasi, iterasi terakhir memaksa jawaban", async () => {
+    hasReadyKnowledge.mockResolvedValue(true);
+    searchKnowledge.mockResolvedValue([]);
+    chatStream.mockImplementation(async (opts: { toolChoice?: string }) =>
+      opts.toolChoice === "none" ? fakeStream(["Maaf, saya tidak tahu."]) : toolCallStream("c", '{"query":"x"}'),
+    );
+    const events = await collect(runBot({ db: fakeDb(state) as never, botId: "b1", userMessage: "?", channel: "playground" }));
+    expect(chatStream).toHaveBeenCalledTimes(6);
+    expect(events.filter((e) => e.type === "tool")).toHaveLength(5);
+    expect(events.at(-1)?.type).toBe("done");
+  });
+
+  it("pencarian gagal: bot tetap menjawab, tidak crash", async () => {
+    hasReadyKnowledge.mockResolvedValue(true);
+    searchKnowledge.mockRejectedValue(new Error("db down"));
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    chatStream.mockResolvedValueOnce(toolCallStream("c1", '{"query":"x"}')).mockResolvedValueOnce(fakeStream(["Maaf, belum bisa dicari."]));
+    const events = await collect(runBot({ db: fakeDb(state) as never, botId: "b1", userMessage: "?", channel: "playground" }));
+    expect(events.at(-1)?.type).toBe("done");
+    expect(chatStream.mock.calls[1][0].messages.at(-1).content).toContain("gagal");
+    spy.mockRestore();
+  });
 });
+
+async function* toolCallStream(id: string, args: string, usage?: object) {
+  yield { choices: [{ delta: { tool_calls: [{ index: 0, id, function: { name: "search_knowledge", arguments: "" } }] } }] };
+  yield { choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: args.slice(0, 5) } }] } }] };
+  yield { choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: args.slice(5) } }] }, finish_reason: "tool_calls" }] };
+  yield { choices: [], usage };
+}

@@ -44,6 +44,7 @@ export interface ChatOptions {
   temperature?: number;
   maxTokens?: number;
   tools?: ChatTool[];
+  toolChoice?: "auto" | "none";
   signal?: AbortSignal;
 }
 
@@ -73,6 +74,7 @@ export async function chatStream(opts: ChatOptions) {
       temperature: opts.temperature,
       max_tokens: opts.maxTokens,
       tools: opts.tools,
+      tool_choice: opts.tools ? opts.toolChoice : undefined,
       stream: true,
       stream_options: { include_usage: true },
     },

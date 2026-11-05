@@ -128,10 +128,21 @@ export function Playground({
               setMessages((ms) => ms.map((m) => (m.id.startsWith("tmp-u-") ? { ...m, id: uid } : m)));
             }
           } else if (ev.type === "delta") {
-            patch((m) => ({ ...m, text: m.text + ev.text }));
+            patch((m) => ({ ...m, text: m.text + ev.text, searching: undefined }));
+          } else if (ev.type === "tool") {
+            patch((m) => ({ ...m, searching: ev.query }));
+          } else if (ev.type === "citations") {
+            patch((m) => ({ ...m, citations: ev.citations }));
           } else if (ev.type === "done") {
             gotDone = true;
-            patch(() => ({ id: ev.message.id, role: "assistant", text: ev.message.content.text, status: ev.message.status, feedback: ev.message.feedback }));
+            patch(() => ({
+              id: ev.message.id,
+              role: "assistant",
+              text: ev.message.content.text,
+              status: ev.message.status,
+              feedback: ev.message.feedback,
+              citations: ev.message.content.citations,
+            }));
           } else if (ev.type === "error") {
             dropEmpty();
             patch((m) => ({ ...m, status: "error" }));

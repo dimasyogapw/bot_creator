@@ -27,9 +27,23 @@ export interface Conversation {
   updated_at: string;
 }
 
+export interface Citation {
+  /** Nomor sitasi di jawaban, mis. [1]. */
+  n: number;
+  source_id: string;
+  chunk_id: string;
+  title: string;
+  /** Kutipan isi chunk yang dipakai. */
+  snippet: string;
+  pages?: number[];
+}
+
 export interface MessageContent {
   text: string;
   ttft_ms?: number;
+  citations?: Citation[];
+  /** Kueri pencarian knowledge yang dijalankan bot untuk jawaban ini. */
+  searches?: string[];
 }
 
 export interface Message {
@@ -54,4 +68,24 @@ export interface ModelPrice {
   output_per_mtok: number;
   cache_read_per_mtok: number | null;
   cache_write_per_mtok: number | null;
+}
+
+export type KnowledgeType = "file" | "url" | "text";
+export type KnowledgeStatus = "uploading" | "pending" | "processing" | "ready" | "error";
+
+export interface KnowledgeSource {
+  id: string;
+  bot_id: string;
+  type: KnowledgeType;
+  title: string;
+  status: KnowledgeStatus;
+  error_message: string | null;
+  storage_path: string | null;
+  url: string | null;
+  mime: string | null;
+  size_bytes: number | null;
+  chunk_count: number | null;
+  progress: number;
+  created_at: string;
+  updated_at: string;
 }

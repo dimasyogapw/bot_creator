@@ -19,8 +19,8 @@ Bot bisa dites di dashboard, lalu dipublikasikan lewat link publik, widget websi
 ## 4. Fitur per fase
 | Fase | Fitur | Status |
 |---|---|---|
-| 1 | Login owner, CRUD bot, playground chat dengan streaming, asisten "Bantu buatkan persona" | |
-| 2 | Knowledge: upload PDF/DOCX/TXT/MD/URL, pencarian, sitasi | |
+| 1 | Login owner, CRUD bot, playground chat dengan streaming, asisten "Bantu buatkan persona" | selesai |
+| 2 | Knowledge: upload PDF/DOCX/TXT/MD/URL, pencarian, sitasi | selesai 2026-11-05 (menunggu review) |
 | 3 | Riwayat percakapan, memory jangka panjang per end user | |
 | 4 | Skills: tool yang bisa dipasang per bot (knowledge search, webhook HTTP, dll.) | |
 | 5 | Link publik per bot, widget embed, rate limit | |

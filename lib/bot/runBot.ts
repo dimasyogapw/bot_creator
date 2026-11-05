@@ -1,7 +1,11 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { chatStream } from "@/lib/llm/provider";
-import type { Bot, Channel, Message, ModelPrice } from "@/lib/db/types";
+import type { Bot, Channel, Citation, Message, ModelPrice } from "@/lib/db/types";
+import type { ChatTool } from "@/lib/llm/provider";
+import { hasReadyKnowledge, searchKnowledge } from "@/lib/knowledge/search";
+import { assignCitations, formatToolResult, usedCitations } from "@/lib/knowledge/format";
+import { searchArgsSchema } from "@/lib/knowledge/schema";
 import { buildMessages, titleFromMessage, HISTORY_LIMIT } from "./prompt";
 import { computeCostUsd, normalizeUsage, type ProviderUsage } from "./pricing";
 
@@ -13,6 +17,8 @@ import { computeCostUsd, normalizeUsage, type ProviderUsage } from "./pricing";
 export type BotEvent =
   | { type: "start"; conversationId: string; userMessageId: string | null }
   | { type: "delta"; text: string }
+  | { type: "tool"; name: "search_knowledge"; query: string }
+  | { type: "citations"; citations: Citation[] }
   | { type: "done"; message: Message }
   | { type: "error"; message: string };
 
@@ -27,6 +33,46 @@ export interface RunBotParams {
   regenerate?: boolean;
   channel: Channel;
   signal?: AbortSignal;
+}
+
+export const MAX_TOOL_ITERATIONS = 5;
+
+export const SEARCH_KNOWLEDGE_TOOL = {
+  type: "function",
+  function: {
+    name: "search_knowledge",
+    description:
+      "Cari informasi di dokumen knowledge milik pemilik bot (file, halaman web, teks SOP). Pakai kata kunci yang spesifik dalam bahasa dokumen. Mengembalikan potongan dokumen bernomor untuk dikutip.",
+    parameters: {
+      type: "object",
+      properties: { query: { type: "string", description: "Kata kunci atau pertanyaan yang dicari" } },
+      required: ["query"],
+    },
+  },
+} satisfies ChatTool;
+
+function safeJson(s: string): unknown {
+  try {
+    return JSON.parse(s || "{}");
+  } catch {
+    return null;
+  }
+}
+
+/** Jumlahkan usage dari beberapa panggilan model (loop tool). */
+export function addUsage(a: ProviderUsage | undefined, b: ProviderUsage): ProviderUsage {
+  if (!a) return b;
+  const sum = (x?: number, y?: number) => (x === undefined && y === undefined ? undefined : (x ?? 0) + (y ?? 0));
+  return {
+    prompt_tokens: sum(a.prompt_tokens, b.prompt_tokens),
+    completion_tokens: sum(a.completion_tokens, b.completion_tokens),
+    cache_read_input_tokens: sum(a.cache_read_input_tokens ?? a.prompt_tokens_details?.cached_tokens, b.cache_read_input_tokens ?? b.prompt_tokens_details?.cached_tokens),
+    cache_creation_input_tokens: sum(
+      a.cache_creation_input_tokens ?? a.prompt_tokens_details?.cache_write_tokens,
+      b.cache_creation_input_tokens ?? b.prompt_tokens_details?.cache_write_tokens,
+    ),
+    cost: sum(a.cost, b.cost),
+  };
 }
 
 export const FRIENDLY_ERROR = "Maaf, bot sedang tidak bisa menjawab. Silakan coba lagi sebentar lagi.";
@@ -113,29 +159,97 @@ export async function* runBot(p: RunBotParams): AsyncGenerator<BotEvent> {
     return;
   }
 
-  // 5. Kirim ke model + stream jawaban
+  // 5. Knowledge aktif jika bot punya sumber ready (agentic RAG lewat tool).
+  let knowledgeOn = false;
+  try {
+    knowledgeOn = await hasReadyKnowledge(db, bot.id);
+  } catch (e) {
+    console.error("[runBot] gagal cek knowledge", e);
+  }
+  const tools = knowledgeOn ? [SEARCH_KNOWLEDGE_TOOL] : undefined;
+  const messages = buildMessages(bot, history, { knowledge: knowledgeOn });
+
+  // 6. Kirim ke model + stream jawaban, dengan loop tool maksimal MAX_TOOL_ITERATIONS.
   const t0 = Date.now();
   let ttft: number | undefined;
   let text = "";
   let usage: ProviderUsage | undefined;
   let status: Message["status"] = "complete";
+  let citations: Citation[] = [];
+  const searches: string[] = [];
 
   try {
-    const stream = await chatStream({
-      model: bot.model,
-      messages: buildMessages(bot, history),
-      temperature: Number(bot.temperature),
-      maxTokens: bot.max_tokens,
-      signal: p.signal,
-    });
-    for await (const chunk of stream) {
-      const delta = chunk.choices[0]?.delta?.content;
-      if (delta) {
-        if (ttft === undefined) ttft = Date.now() - t0;
-        text += delta;
-        yield { type: "delta", text: delta };
+    for (let iter = 0; iter <= MAX_TOOL_ITERATIONS; iter++) {
+      const stream = await chatStream({
+        model: bot.model,
+        messages,
+        temperature: Number(bot.temperature),
+        maxTokens: bot.max_tokens,
+        tools,
+        // Iterasi terakhir: paksa model menjawab tanpa memanggil tool lagi.
+        toolChoice: tools ? (iter === MAX_TOOL_ITERATIONS ? "none" : "auto") : undefined,
+        signal: p.signal,
+      });
+      let iterText = "";
+      const calls: { id: string; name: string; args: string }[] = [];
+      for await (const chunk of stream) {
+        const d = chunk.choices[0]?.delta;
+        if (d?.content) {
+          let piece = d.content;
+          if (!iterText && text) piece = "\n\n" + piece; // pisahkan teks antar-iterasi
+          if (ttft === undefined) ttft = Date.now() - t0;
+          iterText += d.content;
+          text += piece;
+          yield { type: "delta", text: piece };
+        }
+        for (const tc of d?.tool_calls ?? []) {
+          const c = (calls[tc.index] ??= { id: "", name: "", args: "" });
+          if (tc.id) c.id = tc.id;
+          if (tc.function?.name) c.name += tc.function.name;
+          if (tc.function?.arguments) c.args += tc.function.arguments;
+        }
+        if (chunk.usage) usage = addUsage(usage, chunk.usage as ProviderUsage);
       }
-      if (chunk.usage) usage = chunk.usage as ProviderUsage;
+
+      const toolCalls = calls.filter(Boolean);
+      if (!toolCalls.length || !tools) break;
+
+      messages.push({
+        role: "assistant",
+        content: iterText || null,
+        tool_calls: toolCalls.map((c, i) => ({
+          id: c.id || `call_${iter}_${i}`,
+          type: "function" as const,
+          function: { name: c.name, arguments: c.args || "{}" },
+        })),
+      });
+      for (const [i, c] of toolCalls.entries()) {
+        const callId = c.id || `call_${iter}_${i}`;
+        let result: string;
+        if (c.name !== SEARCH_KNOWLEDGE_TOOL.function.name) {
+          result = `Alat "${c.name}" tidak tersedia.`;
+        } else {
+          const args = searchArgsSchema.safeParse(safeJson(c.args));
+          if (!args.success) {
+            result = "Argumen tidak valid. Kirim {\"query\": \"kata kunci pencarian\"}.";
+          } else {
+            const query = args.data.query;
+            searches.push(query);
+            yield { type: "tool", name: "search_knowledge", query };
+            try {
+              const hits = await searchKnowledge(db, bot.id, query);
+              const r = assignCitations(hits, citations);
+              citations = r.citations;
+              result = formatToolResult(query, r.numbered);
+              yield { type: "citations", citations };
+            } catch (e) {
+              console.error("[runBot] search_knowledge gagal", e);
+              result = "Pencarian knowledge sedang gagal. Beri tahu pengguna bahwa informasinya belum bisa dicari saat ini.";
+            }
+          }
+        }
+        messages.push({ role: "tool", tool_call_id: callId, content: result });
+      }
     }
   } catch (e) {
     if (p.signal?.aborted) {
@@ -153,7 +267,7 @@ export async function* runBot(p: RunBotParams): AsyncGenerator<BotEvent> {
     return;
   }
 
-  // 6. Simpan jawaban + token, biaya, latensi
+  // 7. Simpan jawaban + token, biaya, latensi
   const { data: price } = await db.from("model_prices").select("*").eq("model", bot.model).maybeSingle<ModelPrice>();
   const n = normalizeUsage(usage);
   const { data: saved, error: saveErr } = await db
@@ -161,7 +275,12 @@ export async function* runBot(p: RunBotParams): AsyncGenerator<BotEvent> {
     .insert({
       conversation_id: conversationId,
       role: "assistant",
-      content: { text, ttft_ms: ttft },
+      content: {
+        text,
+        ttft_ms: ttft,
+        ...(citations.length ? { citations: usedCitations(text, citations) } : {}),
+        ...(searches.length ? { searches } : {}),
+      },
       model: bot.model,
       tokens_in: usage ? n.tokensIn : null,
       tokens_out: usage ? n.tokensOut : null,

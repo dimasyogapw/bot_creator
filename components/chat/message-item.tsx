@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, RotateCw, ThumbsDown, ThumbsUp } from "lucide-react";
+import { Check, Copy, RotateCw, Search, ThumbsDown, ThumbsUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BotAvatar } from "@/components/ui/bot-avatar";
 import { cn } from "@/lib/utils";
+import { usedCitations } from "@/lib/knowledge/format";
 import { Markdown } from "./markdown";
+import { Citations } from "./citations";
 import type { UIMessage } from "./types";
 
 export function MessageItem({
@@ -34,13 +36,18 @@ export function MessageItem({
   }
 
   const saved = !m.id.startsWith("tmp-") && !m.id.startsWith("welcome");
+  const cites = m.citations?.length ? (m.status === "streaming" ? usedCitations(m.text, m.citations) : m.citations) : [];
   return (
     <div className="flex gap-3" data-role="assistant" data-status={m.status}>
       <BotAvatar name={bot.name} url={bot.avatar_url} className="mt-0.5 size-8" />
       <div className="min-w-0 flex-1">
-        {m.text ? (
-          <Markdown text={m.text} />
-        ) : (
+        {m.text && <Markdown text={m.text} />}
+        {m.status === "streaming" && m.searching && (
+          <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground" role="status" data-testid="searching">
+            <Search className="size-3.5 animate-pulse motion-reduce:animate-none" /> Mencari di knowledge: <span className="truncate italic">&ldquo;{m.searching}&rdquo;</span>
+          </p>
+        )}
+        {!m.text && !m.searching && (
           <div className="flex h-7 items-center gap-1" aria-label="Bot sedang mengetik">
             {[0, 1, 2].map((i) => (
               <span key={i} className="size-1.5 animate-bounce rounded-full bg-muted-foreground/60" style={{ animationDelay: `${i * 120}ms` }} />
@@ -49,6 +56,7 @@ export function MessageItem({
         )}
         {m.status === "streaming" && m.text && <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-foreground/60 align-middle" aria-hidden />}
         {m.status === "stopped" && <p className="mt-1 text-xs text-muted-foreground">Dihentikan</p>}
+        <Citations citations={cites} />
 
         {m.status !== "streaming" && m.text && !m.id.startsWith("welcome") && (
           <div className="mt-1 -ml-2 flex items-center gap-0.5 text-muted-foreground">

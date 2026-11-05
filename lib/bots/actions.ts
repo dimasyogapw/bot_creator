@@ -85,6 +85,13 @@ export async function deleteBot(botId: string): Promise<ActionResult> {
   if (!idSchema.safeParse(botId).success) return { ok: false, error: "Bot tidak valid." };
   try {
     const { supabase } = await requireUser();
+    // File knowledge di storage tidak ikut terhapus otomatis oleh database: hapus dulu.
+    const { data: files } = await supabase.from("knowledge_sources").select("storage_path").eq("bot_id", botId).not("storage_path", "is", null);
+    const paths = (files ?? []).map((f) => f.storage_path as string);
+    if (paths.length) {
+      const { error: stErr } = await supabase.storage.from("knowledge").remove(paths);
+      if (stErr) console.warn("[deleteBot] file knowledge gagal dihapus", stErr);
+    }
     const { error } = await supabase.from("bots").delete().eq("id", botId);
     if (error) throw error;
   } catch (e) {

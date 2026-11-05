@@ -1,15 +1,22 @@
+import type { Citation } from "@/lib/db/types";
+
 export interface UIMessage {
   id: string; // id database, atau "tmp-..." sebelum tersimpan
   role: "user" | "assistant";
   text: string;
   status: "complete" | "stopped" | "error" | "streaming";
   feedback: -1 | 0 | 1;
+  citations?: Citation[];
+  /** Kueri yang sedang dicari di knowledge (hanya saat streaming). */
+  searching?: string;
 }
 
 export type StreamEvent =
   | { type: "start"; conversationId: string; userMessageId: string | null }
   | { type: "delta"; text: string }
-  | { type: "done"; message: { id: string; content: { text: string }; status: "complete" | "stopped" | "error"; feedback: -1 | 0 | 1 } }
+  | { type: "tool"; name: string; query: string }
+  | { type: "citations"; citations: Citation[] }
+  | { type: "done"; message: { id: string; content: { text: string; citations?: Citation[] }; status: "complete" | "stopped" | "error"; feedback: -1 | 0 | 1 } }
   | { type: "error"; message: string };
 
 /** Baca respons NDJSON baris per baris. */

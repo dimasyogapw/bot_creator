@@ -1,4 +1,4 @@
-# Rencana Fase 2: Knowledge (disusun 2026-11-04, menunggu persetujuan owner)
+# Rencana Fase 2: Knowledge (disusun 2026-11-04, disetujui owner, dikerjakan 2026-11-05)
 
 ## Tujuan
 Bot menjawab dari dokumen yang diupload owner, menyebut sumbernya, dan bilang tidak tahu jika informasi tidak ada.
