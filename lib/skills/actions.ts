@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getUser } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getSkillDef, webhookToolName } from "./registry";
 import { listBotSkills, executeSkill } from "./runtime";
 import { SKILL_TYPES, type SkillType } from "./types";
@@ -105,12 +106,14 @@ export async function saveWebhook(botId: string, skillId: string | null, input: 
       savedId = data.id as string;
     }
 
+    // Baris skill di atas ditulis lewat RLS (terbukti milik owner); rahasia ditulis dengan secret key server.
+    const adm = createAdminClient();
     for (const s of secretValues) {
-      const { error } = await db.rpc("set_skill_secret", { p_skill_id: savedId, p_key: s.name, p_value: s.value });
+      const { error } = await adm.rpc("set_skill_secret", { p_skill_id: savedId, p_key: s.name, p_value: s.value });
       if (error) throw error;
     }
     const keep = new Set(cfg.data.headers.filter((h) => h.secret).map((h) => h.name.toLowerCase()));
-    for (const name of oldSecretNames.filter((n) => !keep.has(n))) await db.rpc("delete_skill_secret", { p_skill_id: savedId, p_key: name });
+    for (const name of oldSecretNames.filter((n) => !keep.has(n))) await adm.rpc("delete_skill_secret", { p_skill_id: savedId, p_key: name });
 
     revalidatePath(`/bots/${botId}/skills`);
     return { ok: true, data: { id: savedId! } };

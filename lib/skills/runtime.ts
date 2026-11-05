@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ChatTool } from "@/lib/llm/provider";
 import { hasReadyKnowledge } from "@/lib/knowledge/search";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { BUILTIN_ORDER, getSkillDef } from "./registry";
 import type { SkillContext, SkillDefinition, SkillRow, SkillType, ToolOutcome } from "./types";
 
@@ -68,9 +69,19 @@ export async function activeTools(db: SupabaseClient, botId: string): Promise<Ac
   return { tools, byName };
 }
 
+/**
+ * Rahasia skill (header webhook) dibaca dengan secret key server. Aman karena baris skill
+ * sudah dibaca lewat client yang tunduk RLS, jadi kepemilikannya sudah terbukti.
+ */
+export async function loadSkillSecrets(skillId: string): Promise<Record<string, string>> {
+  const { data, error } = await createAdminClient().rpc("get_skill_secrets", { p_skill_id: skillId });
+  if (error) throw error;
+  return Object.fromEntries(((data ?? []) as { key: string; value: string }[]).map((r) => [r.key.toLowerCase(), r.value]));
+}
+
 export async function executeSkill(ctx: SkillContext, r: ResolvedSkill, args: unknown): Promise<ToolOutcome> {
   try {
-    return await r.def.execute(ctx, { ...r.skill, config: r.config as never }, args);
+    return await r.def.execute({ loadSecrets: loadSkillSecrets, ...ctx }, { ...r.skill, config: r.config as never }, args);
   } catch (e) {
     console.error(`[skills] ${r.skill.type} gagal`, e);
     return { ok: false, content: "Alat ini gagal dijalankan. Sampaikan ke pengguna dengan sopan bahwa informasinya belum bisa diambil.", summary: "error tak terduga" };

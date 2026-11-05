@@ -58,6 +58,7 @@ Kamu bisa memakai salah satu atau keduanya. Keduanya membaca repo GitHub yang sa
      - `supabase.com` dan `api.supabase.com` (untuk perintah Supabase CLI / migrasi)
      - `api.voyageai.com` (hanya jika dipakai sebagai cadangan)
      - `openrouter.ai` (hanya jika dipakai sebagai cadangan)
+     - `api.tavily.com` (skill "Cari di internet", fase 4)
    - Panduan resmi: https://code.claude.com/docs/en/cloud-environments#network-access
 3. Mulai sesi **baru** setelah mengubah environment supaya pengaturan terbaca.
    Catatan: koneksi database langsung (port 5432) kemungkinan tetap diblokir di claude.ai/code. Jika migrasi gagal di sana, jalankan migrasi dari VS Code atau lewat connector Supabase.
@@ -79,6 +80,7 @@ Kamu bisa memakai salah satu atau keduanya. Keduanya membaca repo GitHub yang sa
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Publishable key `sb_publishable_...` | Tidak (memang untuk browser, dilindungi RLS) |
 | `SUPABASE_SECRET_KEY` | Secret key `sb_secret_...` | **Ya, paling sensitif** |
 | `OWNER_EMAIL` | email login owner | Tidak |
+| `TAVILY_API_KEY` | API key Tavily `tvly-...` (opsional, skill "Cari di internet", fase 4) | **Ya** |
 
 Daftar final mengikuti `.env.example` yang dibuat Claude Code di fase 1.
 
@@ -112,3 +114,13 @@ Aplikasi dibuka dari alamat online Vercel karena tidak bisa dijalankan di laptop
 7. Berikan alamat Vercel ke Claude Code agar dicek dengan Playwright.
 
 Catatan: Vercel memasang versi dari branch utama (`main`). Pekerjaan baru masuk ke `main` lewat pull request yang Anda setujui (merge) di GitHub.
+
+---
+
+## G. Tavily untuk skill "Cari di internet" (fase 4, opsional)
+1. Buka https://app.tavily.com dan daftar (bisa dengan akun Google). Paket gratis: 1.000 kredit per bulan, tanpa kartu kredit (per November 2026; cek halaman billing Tavily untuk angka terbaru).
+2. Setelah masuk, salin **API key** (format `tvly-...`). Jangan tempel di chat Claude Code.
+3. Vercel: buka project **bot-creator** lalu **Settings** lalu **Environment Variables**. Tambah `TAVILY_API_KEY` dengan nilai tadi, centang **Production** dan **Preview**, lalu **Save**. Buka **Deployments**, klik titik tiga di deployment teratas, pilih **Redeploy**.
+4. Claude Code web (agar bisa dites otomatis): menu environment, **Edit**, tambah variabel `TAVILY_API_KEY` dan tambah domain `api.tavily.com` di Allowed domains. Mulai sesi baru.
+5. Di aplikasi: tab **Skills**, nyalakan **Cari di internet**.
+

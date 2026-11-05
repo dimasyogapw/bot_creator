@@ -108,12 +108,12 @@ export const httpWebhookSkill: SkillDefinition<WebhookConfig> = {
 
     let secrets: Record<string, string> = {};
     if (s.id && s.config.headers.some((h) => h.secret)) {
-      const { data, error } = await ctx.db.rpc("get_skill_secrets", { p_skill_id: s.id });
-      if (error) {
-        console.error("[skill webhook] gagal membaca rahasia", error);
+      try {
+        secrets = (await ctx.loadSecrets?.(s.id)) ?? {};
+      } catch (e) {
+        console.error("[skill webhook] gagal membaca rahasia", e);
         return { ok: false, content: "Konfigurasi API tidak bisa dibaca. Sampaikan ke pengguna dengan sopan bahwa layanan sedang bermasalah.", summary: "rahasia tidak terbaca" };
       }
-      secrets = Object.fromEntries(((data ?? []) as { key: string; value: string }[]).map((r) => [r.key.toLowerCase(), r.value]));
     }
     const headers: Record<string, string> = { accept: "application/json, text/plain;q=0.9, */*;q=0.5" };
     if (s.config.method === "POST") headers["content-type"] = "application/json";

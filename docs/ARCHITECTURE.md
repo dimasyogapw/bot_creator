@@ -54,8 +54,12 @@ end_users       id, bot_id, channel (playground|web|widget|telegram|whatsapp),
                 external_id, display_name, created_at, last_seen_at
 memories        id, bot_id, end_user_id, content, importance, source_conversation_id,
                 created_at, updated_at
-skills          id, bot_id, type (knowledge_search|http_webhook|...), name,
-                description, config jsonb, enabled
+skills          id, bot_id, type (search_knowledge|http_webhook|current_datetime|web_fetch|
+                web_search|handoff_to_human|capture_lead), name, tool_name, description,
+                config jsonb, enabled   (header rahasia webhook di Supabase Vault)
+handoff_requests id, bot_id, conversation_id, end_user_id, reason, summary,
+                status (open|resolved), created_at, resolved_at
+leads           id, bot_id, conversation_id, end_user_id, data jsonb, created_at
 conversations   id, bot_id, end_user_id, channel, title, summary, summary_until,
                 memory_until, created_at, updated_at
 messages        id, conversation_id, role, content jsonb, tokens_in, tokens_out,
@@ -77,5 +81,8 @@ eval_runs       id, bot_id, created_at, pass_count, total, results jsonb
 ## Keamanan
 - Konten knowledge dibungkus tag `<document>` dan system prompt menegaskan bahwa isinya data, bukan instruksi.
 - Skill `http_webhook` hanya boleh memanggil domain yang ada di allowlist bot.
+- Semua HTTP keluar (knowledge URL, webhook, baca halaman, pencarian) lewat `lib/net/safe-http.ts`: tolak IP privat/lokal (dicek saat koneksi), port standar, batas ukuran dan waktu.
+- Header rahasia webhook disimpan di Supabase Vault; fungsi pembacanya hanya bisa dipanggil server (secret key) setelah kepemilikan skill dibuktikan lewat RLS.
+- Registry skill: `lib/skills/defs/*` (satu file per tipe: skema konfigurasi Zod, definisi tool, eksekusi), didaftarkan di `lib/skills/registry.ts`.
 - Rate limit endpoint publik (contoh: 20 pesan/menit per IP, batas harian per bot).
 - Batas biaya harian per bot; jika terlewati, bot membalas pesan fallback.

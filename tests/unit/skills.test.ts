@@ -73,7 +73,7 @@ describe("webhook (integrasi API)", () => {
     const db = fakeDb([{ key: "authorization", value: "Bearer rahasia-xyz" }]);
     const cfg = webhookConfigSchema.parse(baseCfg);
     const out = await httpWebhookSkill.execute(
-      { db: db as never, bot: { id: "b", name: "B" }, conversationId: "c", endUserId: null, citations: [] },
+      { db: db as never, bot: { id: "b", name: "B" }, conversationId: "c", endUserId: null, citations: [], loadSecrets: async () => ({ authorization: "Bearer rahasia-xyz" }) },
       { id: "11111111-1111-4111-8111-111111111111", bot_id: "b", type: "http_webhook", name: "Cek ongkir", tool_name: "api_cek_ongkir", description: "", enabled: true, config: cfg },
       { kota: "Bogor" },
     );

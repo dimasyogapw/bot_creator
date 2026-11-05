@@ -26,6 +26,8 @@ export interface SkillContext {
   dryRun?: boolean;
   /** Sitasi knowledge yang terkumpul selama satu jawaban. */
   citations: Citation[];
+  /** Pembaca rahasia skill (hanya server). Diisi runtime; bisa diganti di test. */
+  loadSecrets?: (skillId: string) => Promise<Record<string, string>>;
 }
 
 export interface ToolOutcome {

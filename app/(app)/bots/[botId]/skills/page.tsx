@@ -1,7 +1,7 @@
 import { SkillsManager } from "@/components/skills/skills-manager";
 import { getBotOr404 } from "@/lib/bots/queries";
 import { getUser } from "@/lib/supabase/server";
-import { listBotSkills } from "@/lib/skills/runtime";
+import { listBotSkills, loadSkillSecrets } from "@/lib/skills/runtime";
 import type { SkillView } from "@/lib/skills/view";
 
 export const dynamic = "force-dynamic";
@@ -20,11 +20,11 @@ export default async function SkillsPage({ params }: { params: Promise<{ botId: 
         const headers = ((r.skill.config as { headers?: { name: string; secret?: boolean }[] })?.headers ?? []).filter((h) => h.secret);
         if (r.skill.id && headers.length) {
           // Hanya nama header yang dikirim ke browser, nilainya tidak.
-          const { data } = await supabase.rpc("get_skill_secrets", { p_skill_id: r.skill.id });
-          storedSecrets = ((data ?? []) as { key: string }[]).map((x) => x.key);
+          storedSecrets = Object.keys(await loadSkillSecrets(r.skill.id).catch(() => ({})));
         }
         return {
-          key: r.skill.id ?? r.skill.type,
+          // Skill bawaan: kunci tetap per tipe, supaya kartu tidak dibuat ulang saat pertama kali disimpan.
+          key: r.skill.type === "http_webhook" ? r.skill.id! : r.skill.type,
           id: r.skill.id,
           type: r.skill.type,
           name: r.skill.name,
