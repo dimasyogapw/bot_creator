@@ -169,15 +169,15 @@ export async function testSkill(
   }
   try {
     const db = await requireUser();
-    const { data: bot } = await db.from("bots").select("id, name").eq("id", botId).maybeSingle();
+    const { data: bot } = await db.from("bots").select("id, name, model").eq("id", botId).maybeSingle();
     if (!bot) return { ok: false, error: "Bot tidak ditemukan." };
-    const all = await listBotSkills(db, botId);
+    const all = await listBotSkills(db, botId, bot.model as string);
     const r = all.find((x) => x.skill.type === p.data.type && (p.data.type !== "http_webhook" || x.skill.id === p.data.skillId));
     if (!r) return { ok: false, error: "Skill tidak ditemukan. Simpan dulu." };
     if (r.config === null) return { ok: false, error: "Konfigurasi skill belum valid. Periksa dan simpan ulang." };
     if (!r.available.ok) return { ok: false, error: r.available.reason };
     const t0 = Date.now();
-    const out = await executeSkill({ db, bot, conversationId: null, endUserId: null, dryRun: true, citations: [] }, r, args);
+    const out = await executeSkill({ db, bot, model: bot.model as string, conversationId: null, endUserId: null, dryRun: true, citations: [] }, r, args);
     return { ok: true, data: { ok: out.ok, summary: out.summary, content: out.content.slice(0, 6000), ms: Date.now() - t0 } };
   } catch (e) {
     return fail(e, "menjalankan tes");

@@ -13,7 +13,7 @@ export default async function LeadsPage({ params }: { params: Promise<{ botId: s
   const [bot, { supabase }] = await Promise.all([getBotOr404(botId), getUser()]);
   const [{ data, error }, skills] = await Promise.all([
     supabase.from("leads").select("id, data, conversation_id, created_at").eq("bot_id", bot.id).order("created_at", { ascending: false }).limit(500),
-    listBotSkills(supabase, bot.id),
+    listBotSkills(supabase, bot.id, bot.model),
   ]);
   if (error) console.error("[leads] gagal memuat", error);
   const leads = (data ?? []) as { id: string; data: Record<string, string>; conversation_id: string | null; created_at: string }[];

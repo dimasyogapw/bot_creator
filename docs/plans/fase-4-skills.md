@@ -24,7 +24,7 @@ Setiap bot bisa diberi kemampuan tambahan (skill) yang bisa dinyalakan/dimatikan
 8. (Usulan tambahan) `capture_lead` (simpan data pelanggan): bot mengumpulkan data yang owner tentukan (mis. nama, nomor HP, kebutuhan), menyimpannya ke tabel, owner melihat daftar dan mengunduh CSV, opsional dikirim ke webhook n8n.
 
 ## Keputusan owner (2026-11-05, ikut semua rekomendasi)
-- `web_search` masuk fase 4 (owner membuat akun Tavily dan mengisi API key).
+- `web_search` masuk fase 4. Revisi (2026-11-05): owner tidak mau mendaftar layanan lain, jadi memakai pencarian bawaan model lewat SumoPod (Claude/Gemini); Tavily hanya cadangan opsional.
 - Rich media: gambar dari pengguna dulu; output kartu/tombol/gambar di fase 5/7.
 - Discord ditambahkan ke fase 7, Instagram ditunda.
 - `capture_lead` masuk fase 4.

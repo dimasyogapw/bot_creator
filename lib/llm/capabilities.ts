@@ -6,6 +6,19 @@ export function supportsVision(model: string): boolean {
   return /claude|gemini|gpt-(4o|4\.1|5)|qwen[\w.-]*vl|llama-4/i.test(model);
 }
 
+/**
+ * Model dengan pencarian internet bawaan yang diteruskan SumoPod (diuji 2026-11-05):
+ * claude-haiku-5-5 dan gemini-3.5-flash bisa; gpt-5.4-mini tidak; grok ditolak provider.
+ */
+export function supportsNativeWebSearch(model: string): boolean {
+  return /claude|gemini/i.test(model);
+}
+
+/** Panggilan alat yang dijalankan provider sendiri (mis. pencarian bawaan Claude), bukan oleh aplikasi. */
+export function isServerToolCall(id: string) {
+  return id.startsWith("srvtoolu_");
+}
+
 export const IMAGE_TYPES = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif" } as const;
 export type ImageMime = keyof typeof IMAGE_TYPES;
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;

@@ -267,6 +267,11 @@ function BuiltinConfig({ type, config, setConfig }: { type: SkillView["type"]; c
     return (
       <div className="grid gap-4">
         {type === "web_search" && (
+          <p className="text-xs text-muted-foreground">
+            Bot memakai pencarian bawaan model (Claude/Gemini) lewat SumoPod. Dua pengaturan di bawah hanya berlaku jika server memakai cadangan Tavily.
+          </p>
+        )}
+        {type === "web_search" && (
           <div className="grid gap-2">
             <Label htmlFor="max-results">Jumlah hasil per pencarian</Label>
             <Input id="max-results" type="number" min={1} max={10} value={Number(config.maxResults ?? 5)} onChange={(e) => set("maxResults", Number(e.target.value))} />

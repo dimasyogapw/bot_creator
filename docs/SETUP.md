@@ -117,7 +117,8 @@ Catatan: Vercel memasang versi dari branch utama (`main`). Pekerjaan baru masuk 
 
 ---
 
-## G. Tavily untuk skill "Cari di internet" (fase 4, opsional)
+## G. Tavily untuk skill "Cari di internet" (fase 4, OPSIONAL, tidak wajib)
+Skill "Cari di internet" sudah jalan tanpa Tavily untuk bot bermodel Claude atau Gemini (memakai pencarian bawaan model lewat SumoPod). Tavily hanya diperlukan jika bot memakai model lain (mis. DeepSeek) dan tetap ingin bisa mencari di internet.
 1. Buka https://app.tavily.com dan daftar (bisa dengan akun Google). Paket gratis: 1.000 kredit per bulan, tanpa kartu kredit (per November 2026; cek halaman billing Tavily untuk angka terbaru).
 2. Setelah masuk, salin **API key** (format `tvly-...`). Jangan tempel di chat Claude Code.
 3. Vercel: buka project **bot-creator** lalu **Settings** lalu **Environment Variables**. Tambah `TAVILY_API_KEY` dengan nilai tadi, centang **Production** dan **Preview**, lalu **Save**. Buka **Deployments**, klik titik tiga di deployment teratas, pilih **Redeploy**.

@@ -26,6 +26,8 @@ export interface SkillContext {
   dryRun?: boolean;
   /** Sitasi knowledge yang terkumpul selama satu jawaban. */
   citations: Citation[];
+  /** Model bot (dipakai skill yang bergantung pada kemampuan model). */
+  model?: string;
   /** Pembaca rahasia skill (hanya server). Diisi runtime; bisa diganti di test. */
   loadSecrets?: (skillId: string) => Promise<Record<string, string>>;
 }
@@ -57,8 +59,13 @@ export interface SkillDefinition<C = unknown> {
   activityDetail?(args: unknown): string | undefined;
   tool(skill: SkillRow & { config: C }): ChatTool;
   execute(ctx: SkillContext, skill: SkillRow & { config: C }, args: unknown): Promise<ToolOutcome>;
-  /** Syarat di luar konfigurasi (mis. API key server). */
-  availability?(): { ok: true } | { ok: false; reason: string };
+  /** Syarat di luar konfigurasi (mis. API key server, kemampuan model). */
+  availability?(model: string): { ok: true } | { ok: false; reason: string };
+  /**
+   * Skill dijalankan sendiri oleh provider (bukan function tool aplikasi), mis. pencarian bawaan model.
+   * Jika true untuk model ini, runBot mengaktifkan opsi provider dan tidak mengirim function tool.
+   */
+  native?(model: string): boolean;
 }
 
 /** Bungkus hasil tool sebagai data (bukan instruksi) dan cegah tag ditutup dari dalam. */

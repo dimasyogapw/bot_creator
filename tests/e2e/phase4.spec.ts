@@ -325,14 +325,32 @@ test.describe.serial("Fase 4: skills", () => {
     await expect(answer).toContainText(/132/);
   });
 
-  test("DoD 6: cari di internet (jika API key Tavily ada)", async ({ page }) => {
-    test.skip(!process.env.E2E_WEB_SEARCH, "Isi E2E_WEB_SEARCH=1 jika TAVILY_API_KEY sudah diisi di server");
+  test("DoD 6: cari di internet memakai pencarian bawaan model", async ({ page }) => {
     await login(page);
     await page.goto(`/bots/${botId}/skills`);
+    await expect(card(page, "web_search")).not.toContainText("tidak punya pencarian internet bawaan");
     await card(page, "web_search").getByRole("switch").click();
     await expect(page.getByText("Cari di internet dinyalakan")).toBeVisible();
     await newChat(page);
-    const answer = await ask(page, "Cari di internet: siapa presiden Indonesia saat ini? Sebutkan sumbernya.");
-    await expect(answer).toContainText(/https?:\/\//);
+    await page.getByLabel("Ketik pesan").fill("Cari di internet: siapa pemenang Ballon d'Or pria tahun 2025? Sebutkan sumbernya.");
+    await page.keyboard.press("Enter");
+    await expect(page.getByTestId("searching")).toContainText("Mencari di internet", { timeout: 60_000 });
+    const answer = page.locator('[data-role="assistant"]').last();
+    await expect(answer).toHaveAttribute("data-status", "complete", { timeout: 120_000 });
+    await expect(answer).toContainText(/Demb[ée]l[ée]/);
+    await shot(page, "p4-07-web-search");
+    const { data: m } = await admin()
+      .from("messages")
+      .select("content, conversations!inner(bot_id)")
+      .eq("conversations.bot_id", botId)
+      .eq("role", "assistant")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+    expect(((m!.content as { tools?: { type: string }[] }).tools ?? []).some((t) => t.type === "web_search")).toBe(true);
+    // Matikan lagi: biaya per pencarian
+    await page.goto(`/bots/${botId}/skills`);
+    await card(page, "web_search").getByRole("switch").click();
+    await expect(page.getByText("Cari di internet dimatikan")).toBeVisible();
   });
 });

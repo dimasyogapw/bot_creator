@@ -13,7 +13,7 @@ export default async function SkillsPage({ params }: { params: Promise<{ botId: 
   let views: SkillView[] = [];
   let loadError: string | undefined;
   try {
-    const all = await listBotSkills(supabase, bot.id);
+    const all = await listBotSkills(supabase, bot.id, bot.model);
     views = await Promise.all(
       all.map(async (r) => {
         let storedSecrets: string[] = [];

@@ -31,7 +31,7 @@ Bot bisa dites di dashboard, lalu dipublikasikan lewat link publik, widget websi
 Saat membuat atau mengedit bot, owner bisa menjawab beberapa pertanyaan singkat (tujuan bot, target pengguna, gaya bahasa, hal yang boleh dan tidak boleh dibahas, contoh pertanyaan). Model ringan lalu menyusun draf system prompt dan pesan sambutan. Hasilnya hanya draf: owner tetap bisa mengedit atau menulis sendiri. Fitur ini opsional dan tidak pernah menyimpan otomatis tanpa owner menekan Simpan.
 
 ### Tambahan fase 4 (disetujui owner 2026-11-05)
-- **Cari di internet** (`web_search`) lewat layanan pencarian eksternal (Tavily), dan **baca halaman web** (`web_fetch`).
+- **Cari di internet** (`web_search`) memakai pencarian bawaan model (Claude/Gemini) lewat SumoPod, tanpa layanan tambahan (keputusan owner 2026-11-05; Tavily hanya cadangan opsional), dan **baca halaman web** (`web_fetch`).
 - **Gambar dari pengguna**: pengguna bisa melampirkan gambar, bot membacanya (hanya model yang mendukung gambar). Bot mengirim kartu/tombol/gambar ke pengguna dikerjakan bersama channel di fase 5/7.
 - **Simpan data pelanggan** (`capture_lead`): bot mengumpulkan data yang ditentukan owner, owner bisa melihat dan mengunduh CSV.
 - **Alihkan ke manusia**: permintaan tampil di aplikasi, opsional diteruskan ke webhook (mis. n8n).

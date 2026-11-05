@@ -6,7 +6,7 @@ import { usedCitations } from "@/lib/knowledge/format";
 import { activeTools, executeSkill, type ActiveTools } from "@/lib/skills/runtime";
 import { extractMemories, loadMemories } from "@/lib/memory/extract";
 import { maybeSummarize } from "./summary";
-import { supportsVision } from "@/lib/llm/capabilities";
+import { isServerToolCall, supportsVision } from "@/lib/llm/capabilities";
 import { buildMessages, titleFromMessage, HISTORY_LIMIT } from "./prompt";
 import { computeCostUsd, normalizeUsage, type ProviderUsage } from "./pricing";
 
@@ -210,13 +210,15 @@ export async function* runBot(p: RunBotParams): AsyncGenerator<BotEvent> {
   }
 
   // 7. Skill aktif bot (search_knowledge hanya jika ada sumber ready).
-  let skillTools: ActiveTools = { tools: [], byName: new Map() };
+  let skillTools: ActiveTools = { tools: [], byName: new Map(), native: new Map() };
   try {
-    skillTools = await activeTools(db, bot.id);
+    skillTools = await activeTools(db, bot.id, bot.model);
   } catch (e) {
     console.error("[runBot] gagal memuat skill", e);
   }
   const tools = skillTools.tools.length ? skillTools.tools : undefined;
+  // Pencarian internet bawaan model: dijalankan provider sendiri, aplikasi hanya mencatatnya.
+  const nativeSearch = skillTools.native.get("web_search");
   const knowledgeOn = skillTools.byName.has("search_knowledge");
   const messages = buildMessages(bot, history, { knowledge: knowledgeOn, memoryEnabled: bot.memory_enabled && !!endUserId, memories, summary, imageData, vision: supportsVision(bot.model) });
 
@@ -229,7 +231,7 @@ export async function* runBot(p: RunBotParams): AsyncGenerator<BotEvent> {
   const citations: Citation[] = [];
   const searches: string[] = [];
   const toolLog: ToolCallRecord[] = [];
-  const skillCtx = { db, bot, conversationId, endUserId, citations };
+  const skillCtx = { db, bot, model: bot.model, conversationId, endUserId, citations };
 
   try {
     for (let iter = 0; iter <= MAX_TOOL_ITERATIONS; iter++) {
@@ -241,6 +243,7 @@ export async function* runBot(p: RunBotParams): AsyncGenerator<BotEvent> {
         tools,
         // Iterasi terakhir: paksa model menjawab tanpa memanggil tool lagi.
         toolChoice: tools ? (iter === MAX_TOOL_ITERATIONS ? "none" : "auto") : undefined,
+        webSearch: !!nativeSearch,
         signal: p.signal,
       });
       let iterText = "";
@@ -256,6 +259,8 @@ export async function* runBot(p: RunBotParams): AsyncGenerator<BotEvent> {
           yield { type: "delta", text: piece };
         }
         for (const tc of d?.tool_calls ?? []) {
+          // Pencarian bawaan model dimulai: tampilkan indikator saat itu juga.
+          if (tc.id && isServerToolCall(tc.id)) yield { type: "tool", name: "web_search", label: "Mencari di internet" };
           const c = (calls[tc.index] ??= { id: "", name: "", args: "" });
           if (tc.id) c.id = tc.id;
           if (tc.function?.name) c.name += tc.function.name;
@@ -264,7 +269,12 @@ export async function* runBot(p: RunBotParams): AsyncGenerator<BotEvent> {
         if (chunk.usage) usage = addUsage(usage, chunk.usage as ProviderUsage);
       }
 
-      const toolCalls = calls.filter(Boolean);
+      // Panggilan yang dijalankan provider (pencarian bawaan) sudah selesai di sisi provider: catat saja.
+      for (const c of calls.filter((x) => x && isServerToolCall(x.id))) {
+        const detail = (safeJson(c.args) as { query?: string } | null)?.query;
+        toolLog.push({ name: c.name, type: "web_search", label: "Mencari di internet", detail, ok: true, ms: 0, summary: "pencarian bawaan model" });
+      }
+      const toolCalls = calls.filter((x) => x && !isServerToolCall(x.id));
       if (!toolCalls.length || !tools) break;
 
       messages.push({
