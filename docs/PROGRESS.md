@@ -118,6 +118,7 @@ Keputusan: default bot `claude-haiku-5-5` (murah, tercepat, prompt caching jalan
 - Nomor sitasi lama dibuang dari riwayat yang dikirim ke model. Alasan: nomor [1] lama tertukar dengan [1] baru sehingga bot "mengoreksi" jawaban yang sudah benar.
 - Setelan `hnsw.ef_search` / `iterative_scan` dilepas dari fungsi pencarian karena Supabase menolak mengubahnya. Pengaruhnya kecil untuk data pribadi; ditinjau lagi jika jumlah bot dan dokumen besar.
 - Bug yang ditemukan dan diperbaiki saat verifikasi: kebijakan storage membaca nama bot sebagai nama file (semua upload ditolak). Diperbaiki dengan migrasi `20261104150000_fix_knowledge_storage_policy.sql`.
+- Vercel: `EMBEDDING_MODEL` dan `EMBEDDING_DIMENSIONS` sebelumnya hanya aktif untuk Production. Ditambah target Preview (nilai tidak diubah) supaya knowledge bisa dicoba di Preview.
 - Migrasi fase 2 yang sudah diterapkan ke Supabase: `phase2_knowledge`, `fix_knowledge_storage_policy`, `match_knowledge_term_coverage`, `knowledge_chunks_fk_index`.
 
 (diisi Claude Code di akhir tiap fase)
