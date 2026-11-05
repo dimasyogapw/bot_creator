@@ -46,9 +46,10 @@ bots            id, name, slug, avatar_url, system_prompt, model, temperature,
                 max_tokens, welcome_message, is_public, settings jsonb,
                 created_at, updated_at
 knowledge_sources id, bot_id, type (file|url|text), title, status
-                (pending|processing|ready|error), error_message, created_at
-knowledge_chunks id, source_id, bot_id, content, embedding vector(EMBEDDING_DIMENSIONS),
-                metadata jsonb, token_count
+                (uploading|pending|processing|ready|error), error_message, storage_path,
+                url, mime, size_bytes, chunk_count, progress, created_at, updated_at
+knowledge_chunks id, source_id, bot_id, chunk_index, content, embedding vector(1536),
+                fts tsvector, metadata jsonb (pages), token_count
 end_users       id, bot_id, channel (playground|web|widget|telegram|whatsapp),
                 external_id, display_name, created_at
 memories        id, bot_id, end_user_id, content, importance, created_at, updated_at
