@@ -106,7 +106,9 @@ test.describe.serial("Fase 1", () => {
     await page.reload();
     await expect(page.locator('[data-role="user"]').last()).toContainText("3 cara menyeduh kopi");
     const reloaded = page.locator('[data-role="assistant"]').last();
-    expect((await reloaded.innerText()).slice(0, 80)).toBe(finalText.slice(0, 80));
+    // Bandingkan isi tanpa spasi/baris: innerText bisa berbeda tata letak sesaat setelah refresh.
+    const squash = (t: string) => t.replace(/\s+/g, "");
+    await expect.poll(async () => squash(await reloaded.innerText()).slice(0, 60)).toBe(squash(finalText).slice(0, 60));
     await expect(reloaded.getByRole("button", { name: "Jawaban bagus" })).toHaveAttribute("aria-pressed", "true");
   });
 
