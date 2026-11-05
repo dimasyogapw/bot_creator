@@ -23,7 +23,7 @@ Bot bisa dites di dashboard, lalu dipublikasikan lewat link publik, widget websi
 | 2 | Knowledge: upload PDF/DOCX/TXT/MD/URL, pencarian, sitasi | selesai 2026-11-05 |
 | 3 | Riwayat percakapan, memory jangka panjang per end user | selesai 2026-11-05 |
 | 4 | Skills: tool yang bisa dipasang per bot (knowledge search, webhook HTTP/integrasi API, jam/tanggal, baca halaman web, cari di internet, alihkan ke manusia, simpan data pelanggan) + gambar dari pengguna | selesai 2026-11-05 |
-| 5 | Link publik per bot, widget embed, rate limit | |
+| 5 | Link publik per bot, widget embed, rate limit | selesai 2026-11-05 (menunggu review) |
 | 6 | Eval set per bot, analytics dasar (jumlah chat, token, biaya) | |
 | 7 | Integrasi Telegram, lalu WhatsApp, lalu Discord | |
 

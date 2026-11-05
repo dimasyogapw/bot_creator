@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { runBot } from "@/lib/bot/runBot";
 import { checkLimits, clientIp, getPublicBot, toPublicEvent } from "@/lib/publish/public";
 import { publicChatSchema } from "@/lib/publish/schema";
+import { visitorConversation } from "@/lib/publish/visitor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,6 +31,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ slug: string }
     return json({ error: "Maaf, layanan sedang bermasalah. Coba lagi sebentar lagi." }, 500);
   }
   if (!bot) return json(NOT_FOUND, 404);
+
+  // Hanya percakapan milik pengunjung ini (lapis kedua selain pengecekan di runBot).
+  if (body.conversationId && !(await visitorConversation(bot.id, body.visitorId, body.conversationId).catch(() => null)))
+    return json({ error: "Percakapan tidak ditemukan. Mulai chat baru." }, 404);
 
   try {
     const limit = await checkLimits(bot, body.visitorId, clientIp(req));
