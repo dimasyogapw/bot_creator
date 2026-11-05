@@ -5,7 +5,7 @@
 | 0 Persiapan | belum | ikuti docs/SETUP.md |
 | 1 Fondasi + playground | **selesai** (disetujui owner 2026-11-04) | live di https://bot-creator-three.vercel.app |
 | 2 Knowledge | **selesai, menunggu review owner** (PR ke main) | DoD 1 sampai 5 lulus di test otomatis |
-| 3 Percakapan + memory | **selesai, menunggu review owner** (PR ke main) | DoD 1 sampai 6 lulus di test otomatis |
+| 3 Percakapan + memory | **selesai** (PR #5 di-merge owner 2026-11-05) | DoD 1 sampai 6 lulus di Production |
 | 4 Skills | belum | |
 | 5 Publikasi | belum | |
 | 6 Evals + analytics | belum | |
@@ -144,6 +144,7 @@ Keputusan: default bot `claude-haiku-5-5` (murah, tercepat, prompt caching jalan
   6. Nomor kartu dan NIK yang diketik tidak masuk memory.
 - Keamanan: advisor security bersih (kecuali saran lama leaked password protection). Tanpa login ditolak di `end_users`, `memories`, `conversation_overview`. Owner lain tidak bisa membaca, menambah, menghapus memory atau mengubah saklar memory bot orang lain (dicek dengan 2 akun). Kunci rahasia tidak ada di file browser.
 - Screenshot 375px dan 1440px: `tests/e2e/screenshots/p3-*.png` (tidak di-commit).
+- Setelah merge, test penuh ke Production (`E2E_BASE_URL=https://bot-creator-three.vercel.app`): 20 lulus (fase 1 sampai 3, termasuk tambah URL). Ekstraksi memory dan ringkasan lewat `after()` terbukti jalan di Vercel. Log error Production 1 jam terakhir hanya berisi 2 penolakan login yang memang dipicu test.
 
 ### Belum / catatan
 - Biaya model ringan (ekstraksi memory dan ringkasan) belum dicatat. Perkiraan sekitar USD 0,0002 per jawaban saat memory aktif. Dibahas di fase 6 (analytics).
