@@ -6,7 +6,7 @@
 | 1 Fondasi + playground | **selesai** (disetujui owner 2026-11-04) | live di https://bot-creator-three.vercel.app |
 | 2 Knowledge | **selesai, menunggu review owner** (PR ke main) | DoD 1 sampai 5 lulus di test otomatis |
 | 3 Percakapan + memory | **selesai** (PR #5 di-merge owner 2026-11-05) | DoD 1 sampai 6 lulus di Production |
-| 4 Skills | **selesai, menunggu review owner** (PR ke main) | DoD 1 sampai 9 lulus (baca halaman web dites ke Production setelah merge) |
+| 4 Skills | **selesai** (PR #7 di-merge owner 2026-11-05) | DoD 1 sampai 9 lulus; Production 27 lulus |
 | 5 Publikasi | belum | |
 | 6 Evals + analytics | belum | |
 | 7 Telegram / WhatsApp | belum | |
@@ -190,7 +190,7 @@ Keputusan: default bot `claude-haiku-5-5` (murah, tercepat, prompt caching jalan
 - Satu kali Supabase membalas "Internal server error" saat mengambil riwayat chat (test gagal sekali, lulus saat diulang, tidak terulang). Dicatat sebagai gangguan sesaat Supabase.
 
 ### Belum / catatan
-- **Baca halaman web** belum teruji di sini (server aplikasi di Claude Code web tidak bisa membuka situs luar). Test otomatisnya dijalankan ke Production setelah merge.
+- Setelah merge, test penuh ke Production: 27 lulus, termasuk **baca halaman web** (Wikipedia Monas, dijawab 132 m) dan **cari di internet**. 3 dilewati: test webhook yang butuh server API tiruan lokal (sudah lulus di lokal). Log error Production hanya 2 penolakan login yang dipicu test. Owner juga sudah mencoba cari di internet di Preview (berita politik terbaru, bot persona umum).
 - **Biaya Cari di internet**: satu pertanyaan dengan pencarian tercatat sekitar USD 0,011 (hasil pencarian sekitar 14 ribu token ikut dibaca model), jauh di atas jawaban biasa. Karena itu skill ini mati secara bawaan.
 - Cari di internet hanya untuk model Claude/Gemini (diuji: GPT-5.4 mini tidak bisa, Grok ditolak provider). Model lain: skill ditandai tidak tersedia, kecuali `TAVILY_API_KEY` diisi.
 - Webhook ke server lokal di test memakai env `E2E_ALLOW_PRIVATE_HOSTS=localhost` (hanya lokal, diabaikan di Vercel).
