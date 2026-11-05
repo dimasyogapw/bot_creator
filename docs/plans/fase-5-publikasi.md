@@ -1,4 +1,4 @@
-# Rencana Fase 5: Publikasi (disusun 2026-11-05, menunggu persetujuan owner)
+# Rencana Fase 5: Publikasi (disusun 2026-11-05, disetujui owner 2026-11-05)
 
 ## Tujuan
 Orang lain bisa chat dengan bot owner lewat link publik dan widget di website mana pun, dengan pengaman biaya dan spam yang aktif sebelum link dibagikan.
@@ -20,6 +20,13 @@ Orang lain bisa chat dengan bot owner lewat link publik dan widget di website ma
    - Pengunjung hanya bisa melanjutkan percakapannya sendiri.
    - Widget hanya bisa ditampilkan di domain yang diizinkan (header `frame-ancestors`).
    - Input divalidasi Zod, panjang pesan dibatasi.
+
+## Keputusan owner (2026-11-05, ikut semua rekomendasi)
+1. Batas bawaan per bot: USD 1 per hari, 300 pesan per hari, 20 pesan per menit per pengunjung (bisa diubah per bot).
+2. Gambar dari pengunjung publik: dimatikan dulu (tetap ada di Playground).
+3. Pemberitahuan privasi singkat ditampilkan di halaman publik dan widget.
+4. Skill di channel publik sama dengan pengaturan bot (tidak ada pengaturan terpisah).
+- Batas harian (pesan dan biaya) hanya menghitung channel publik; pemakaian owner di Playground tidak ikut dibatasi.
 
 ## Teknis
 - Migrasi: kolom batas dan pengaturan widget di `bots` (atau `settings`), tabel `rate_limits` (hitungan per kunci per jendela waktu) dengan fungsi atomik yang hanya bisa dipanggil server. RLS aktif.

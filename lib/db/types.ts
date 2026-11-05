@@ -13,6 +13,12 @@ export interface Bot {
   welcome_message: string | null;
   is_public: boolean;
   memory_enabled: boolean;
+  daily_cost_limit_usd: number;
+  daily_message_limit: number;
+  per_minute_limit: number;
+  limit_message: string;
+  widget: { color?: string; position?: "right" | "left"; buttonText?: string };
+  allowed_domains: string[];
   settings: Record<string, unknown>;
   created_at: string;
   updated_at: string;

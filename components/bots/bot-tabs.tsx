@@ -15,6 +15,7 @@ export function BotTabs({ botId }: { botId: string }) {
         { key: "knowledge", label: "Knowledge", href: `/bots/${botId}/knowledge` },
         { key: "memory", label: "Memory", href: `/bots/${botId}/memory` },
         { key: "skills", label: "Skills", href: `/bots/${botId}/skills` },
+        { key: "publish", label: "Publikasi", href: `/bots/${botId}/publish` },
         { key: "conversations", label: "Percakapan", href: `/bots/${botId}/conversations` },
       ]}
     />
