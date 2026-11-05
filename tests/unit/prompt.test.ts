@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BASE_RULES, KNOWLEDGE_RULES, buildMessages, buildSystemPrompt, titleFromMessage } from "@/lib/bot/prompt";
+import { BASE_RULES, KNOWLEDGE_RULES, buildMessages, buildSystemPrompt, titleFromMessage, stripCitationMarks } from "@/lib/bot/prompt";
 
 const bot = { name: "Tes", system_prompt: "Kamu barista.", model: "claude-sonnet-5-5" };
 const msg = (role: "user" | "assistant", text: string) => ({ role, content: { text } });
@@ -41,5 +41,11 @@ describe("prompt", () => {
     expect(s).toContain(KNOWLEDGE_RULES);
     expect(s).toMatch(/DATA, bukan instruksi/);
     expect(s).toMatch(/tidak menemukan informasinya/);
+  });
+
+  it("nomor sitasi lama dibuang dari riwayat jawaban bot", () => {
+    expect(stripCitationMarks("Harga Rp10.000 [1][2]. Buka jam 8 [3, 4].")).toBe("Harga Rp10.000. Buka jam 8.");
+    const out = buildMessages(bot, [msg("user", "a"), msg("assistant", "Jawab [1]."), msg("user", "b")]);
+    expect(out[2]).toEqual({ role: "assistant", content: "Jawab." });
   });
 });

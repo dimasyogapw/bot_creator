@@ -24,6 +24,10 @@ function ensureText(segments: Segment[], emptyMessage: string): Segment[] {
   return segments;
 }
 
+export function joinPdfLines(t: string): string {
+  return t.replace(/\r\n?/g, "\n").replace(/([^.!?:;\n])[ \t]*\n(?!\s*\n)[ \t]*(?=\S)/g, "$1 ");
+}
+
 export async function extractPdf(data: Uint8Array): Promise<Extracted> {
   const { getDocumentProxy, extractText } = await import("unpdf");
   let pdf;
@@ -35,7 +39,8 @@ export async function extractPdf(data: Uint8Array): Promise<Extracted> {
     throw new KnowledgeError("File PDF rusak atau tidak bisa dibaca.", e);
   }
   const { totalPages, text } = await extractText(pdf, { mergePages: false });
-  const segments = (text as string[]).map((t, i) => ({ text: t, page: i + 1 }));
+  // PDF memotong teks per baris visual: gabungkan baris dalam satu paragraf, kecuali setelah tanda akhir kalimat.
+  const segments = (text as string[]).map((t, i) => ({ text: joinPdfLines(t), page: i + 1 }));
   return {
     segments: ensureText(segments, "PDF ini tidak berisi teks (kemungkinan hasil scan atau gambar). PDF hasil scan belum didukung."),
     pages: totalPages,

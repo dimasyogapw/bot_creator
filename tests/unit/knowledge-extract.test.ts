@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractHtml, extractPlain } from "@/lib/knowledge/extract";
+import { extractHtml, extractPlain, joinPdfLines } from "@/lib/knowledge/extract";
 
 describe("ekstraksi", () => {
   it("HTML: ambil isi utama, buang script dan menu", async () => {
@@ -17,5 +17,11 @@ describe("ekstraksi", () => {
 
   it("teks kosong ditolak dengan pesan jelas", () => {
     expect(() => extractPlain(new TextEncoder().encode("   "))).toThrow(/kosong/);
+  });
+
+  it("PDF: baris dalam satu paragraf digabung, akhir kalimat dipertahankan", () => {
+    expect(joinPdfLines("Batas biaya adalah Rp 1.250.000 per tahun, dengan\nmelampirkan resep.\nParagraf baru.\n\nBagian lain")).toBe(
+      "Batas biaya adalah Rp 1.250.000 per tahun, dengan melampirkan resep.\nParagraf baru.\n\nBagian lain",
+    );
   });
 });
