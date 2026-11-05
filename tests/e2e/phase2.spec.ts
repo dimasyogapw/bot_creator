@@ -223,4 +223,25 @@ test.describe.serial("Fase 2: knowledge", () => {
     await page.reload();
     await expect(page.getByTestId("knowledge-source")).toHaveCount(1);
   });
+
+  // Butuh akses internet dari server aplikasi. Claude Code web memblokir situs luar,
+  // jadi test ini hanya jalan saat E2E_BASE_URL diisi (mis. Production di Vercel).
+  test("tambah URL halaman web publik, lalu dijawab dengan sitasi", async ({ page }) => {
+    test.skip(!process.env.E2E_BASE_URL, "Hanya untuk aplikasi online (E2E_BASE_URL)");
+    await login(page);
+    await page.goto(`/bots/${botId}/knowledge`);
+    await page.getByRole("tab", { name: "URL" }).click();
+    await page.getByLabel("Alamat halaman web").fill("https://id.wikipedia.org/wiki/Monumen_Nasional");
+    await page.getByRole("button", { name: "Tambah URL" }).click();
+    const row = page.getByTestId("knowledge-source").filter({ hasText: /Monumen Nasional|wikipedia/i });
+    await expect(row).toHaveAttribute("data-status", "ready", { timeout: 120_000 });
+    await expect(row).toContainText("Monumen Nasional");
+    await shot(page, "p2-06-knowledge-url");
+
+    await page.goto(`/bots/${botId}/playground`);
+    await page.getByRole("button", { name: "Chat baru" }).first().click();
+    const answer = await ask(page, "Berapa tinggi Monumen Nasional menurut knowledge?");
+    await expect(answer).toContainText(/132/);
+    await expect(answer.getByTestId("citation-chip").first()).toContainText("Monumen Nasional");
+  });
 });

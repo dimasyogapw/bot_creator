@@ -2,6 +2,8 @@ import fs from "node:fs";
 import { defineConfig, devices } from "@playwright/test";
 
 const PORT = Number(process.env.E2E_PORT ?? 3100);
+// E2E_BASE_URL diisi untuk menguji aplikasi yang sudah online (mis. Production), tanpa server lokal.
+const REMOTE = process.env.E2E_BASE_URL;
 // Claude Code web punya Chromium bawaan; di laptop pakai `npx playwright install`.
 const CLOUD_CHROMIUM = "/opt/pw-browsers/chromium";
 const launchOptions = fs.existsSync(CLOUD_CHROMIUM) ? { executablePath: CLOUD_CHROMIUM } : {};
@@ -15,14 +17,16 @@ export default defineConfig({
   reporter: [["list"]],
   globalSetup: "./tests/e2e/global-setup.ts",
   globalTeardown: "./tests/e2e/global-teardown.ts",
-  use: { baseURL: `http://localhost:${PORT}`, trace: "retain-on-failure", launchOptions },
+  use: { baseURL: REMOTE ?? `http://localhost:${PORT}`, trace: "retain-on-failure", launchOptions },
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 }, launchOptions } },
   ],
-  webServer: {
-    command: `npm run start -- -p ${PORT}`,
-    url: `http://localhost:${PORT}/login`,
-    reuseExistingServer: true,
-    timeout: 120_000,
-  },
+  webServer: REMOTE
+    ? undefined
+    : {
+        command: `npm run start -- -p ${PORT}`,
+        url: `http://localhost:${PORT}/login`,
+        reuseExistingServer: true,
+        timeout: 120_000,
+      },
 });
