@@ -6,6 +6,7 @@ import { usedCitations } from "@/lib/knowledge/format";
 import { activeTools, executeSkill, type ActiveTools } from "@/lib/skills/runtime";
 import { extractMemories, loadMemories } from "@/lib/memory/extract";
 import { maybeSummarize } from "./summary";
+import { supportsVision } from "@/lib/llm/capabilities";
 import { buildMessages, titleFromMessage, HISTORY_LIMIT } from "./prompt";
 import { computeCostUsd, normalizeUsage, type ProviderUsage } from "./pricing";
 
@@ -29,6 +30,8 @@ export interface RunBotParams {
   conversationId?: string | null;
   /** Pesan baru dari pengguna. Kosongkan bila regenerate. */
   userMessage?: string;
+  /** Gambar yang dilampirkan pengguna (sudah diupload ke bucket chat-uploads). */
+  userImages?: { path: string; mime: string }[];
   /** Ulangi jawaban terakhir: hapus jawaban bot terakhir, jawab ulang pesan user terakhir. */
   regenerate?: boolean;
   channel: Channel;
@@ -118,13 +121,13 @@ export async function* runBot(p: RunBotParams): AsyncGenerator<BotEvent> {
     summaryUntil = conv.summary_until;
     if (endUserId && !conv.end_user_id) await db.from("conversations").update({ end_user_id: endUserId }).eq("id", conversationId);
   } else {
-    if (p.regenerate || !p.userMessage) {
+    if (p.regenerate || (!p.userMessage && !p.userImages?.length)) {
       yield { type: "error", message: "Tidak ada pesan untuk dijawab." };
       return;
     }
     const { data: conv, error } = await db
       .from("conversations")
-      .insert({ bot_id: bot.id, channel: p.channel, title: titleFromMessage(p.userMessage), end_user_id: endUserId })
+      .insert({ bot_id: bot.id, channel: p.channel, title: titleFromMessage(p.userMessage || "Gambar"), end_user_id: endUserId })
       .select("id")
       .single();
     if (error || !conv) {
@@ -149,7 +152,7 @@ export async function* runBot(p: RunBotParams): AsyncGenerator<BotEvent> {
   } else {
     const { data: um, error } = await db
       .from("messages")
-      .insert({ conversation_id: conversationId, role: "user", content: { text: p.userMessage } })
+      .insert({ conversation_id: conversationId, role: "user", content: { text: p.userMessage ?? "", ...(p.userImages?.length ? { images: p.userImages } : {}) } })
       .select("id")
       .single();
     if (error || !um) {
@@ -182,6 +185,20 @@ export async function* runBot(p: RunBotParams): AsyncGenerator<BotEvent> {
     return;
   }
 
+  // 5b. Gambar di pesan pengguna terakhir: dikirim ke model sebagai data URL (hanya model yang bisa melihat gambar).
+  const imageData = new Map<string, string>();
+  const lastImages = history[history.length - 1].content?.images ?? [];
+  if (lastImages.length && supportsVision(bot.model)) {
+    for (const img of lastImages) {
+      const { data: file, error } = await db.storage.from("chat-uploads").download(img.path);
+      if (error || !file) {
+        console.error("[runBot] gagal membaca gambar", img.path, error);
+        continue;
+      }
+      imageData.set(img.path, `data:${img.mime};base64,${Buffer.from(await file.arrayBuffer()).toString("base64")}`);
+    }
+  }
+
   // 6. Memory end user (hanya jika memory bot aktif).
   let memories: { content: string }[] = [];
   if (bot.memory_enabled && endUserId) {
@@ -201,7 +218,7 @@ export async function* runBot(p: RunBotParams): AsyncGenerator<BotEvent> {
   }
   const tools = skillTools.tools.length ? skillTools.tools : undefined;
   const knowledgeOn = skillTools.byName.has("search_knowledge");
-  const messages = buildMessages(bot, history, { knowledge: knowledgeOn, memoryEnabled: bot.memory_enabled && !!endUserId, memories, summary });
+  const messages = buildMessages(bot, history, { knowledge: knowledgeOn, memoryEnabled: bot.memory_enabled && !!endUserId, memories, summary, imageData, vision: supportsVision(bot.model) });
 
   // 8. Kirim ke model + stream jawaban, dengan loop tool maksimal MAX_TOOL_ITERATIONS.
   const t0 = Date.now();

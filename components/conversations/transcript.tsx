@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Search, ThumbsDown, ThumbsUp } from "lucide-react";
+import { Search, ThumbsDown, ThumbsUp, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { BotAvatar } from "@/components/ui/bot-avatar";
 import { Markdown } from "@/components/chat/markdown";
 import { Citations } from "@/components/chat/citations";
+import { UserImages } from "@/components/chat/message-item";
 import { setMessageFeedback } from "@/lib/bots/actions";
 import { formatDateTime } from "@/lib/conversations/labels";
 import { cn } from "@/lib/utils";
@@ -28,7 +29,15 @@ export interface TranscriptMessage {
 }
 
 /** Transkrip baca-saja untuk tab Percakapan, dengan detail teknis per jawaban dan feedback. */
-export function Transcript({ bot, messages }: { bot: { name: string; avatar_url: string | null }; messages: TranscriptMessage[] }) {
+export function Transcript({
+  bot,
+  messages,
+  imageUrls = {},
+}: {
+  bot: { name: string; avatar_url: string | null };
+  messages: TranscriptMessage[];
+  imageUrls?: Record<string, string>;
+}) {
   const [feedback, setFeedback] = useState<Record<string, -1 | 0 | 1>>(() => Object.fromEntries(messages.map((m) => [m.id, m.feedback])));
 
   async function rate(id: string, f: -1 | 0 | 1) {
@@ -48,7 +57,10 @@ export function Transcript({ bot, messages }: { bot: { name: string; avatar_url:
       {messages.map((m) =>
         m.role === "user" ? (
           <li key={m.id} className="flex flex-col items-end gap-1" data-role="user">
-            <div className="max-w-[85%] rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-[15px] whitespace-pre-wrap text-primary-foreground">{m.content.text}</div>
+            {m.content.images?.length ? <UserImages images={m.content.images.map((i) => ({ url: imageUrls[i.path] ?? "" })).filter((i) => i.url)} /> : null}
+            {m.content.text && (
+              <div className="max-w-[85%] rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-[15px] whitespace-pre-wrap text-primary-foreground">{m.content.text}</div>
+            )}
             <time className="text-xs text-muted-foreground" dateTime={m.created_at}>
               {formatDateTime(m.created_at)}
             </time>
@@ -57,7 +69,20 @@ export function Transcript({ bot, messages }: { bot: { name: string; avatar_url:
           <li key={m.id} className="flex gap-3" data-role="assistant">
             <BotAvatar name={bot.name} url={bot.avatar_url} className="mt-0.5 size-8" />
             <div className="min-w-0 flex-1">
-              {m.content.searches?.length ? (
+              {m.content.tools?.length ? (
+                <ul className="mb-2 grid gap-1" aria-label="Skill yang dipakai" data-testid="tool-calls">
+                  {m.content.tools.map((t, i) => (
+                    <li key={i} className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 rounded-md bg-muted/50 px-2 py-1 text-xs text-muted-foreground">
+                      <Wrench className="size-3.5" />
+                      <span className="font-medium text-foreground">{t.label}</span>
+                      {t.detail && <span className="truncate italic">&ldquo;{t.detail}&rdquo;</span>}
+                      <span className={cn(t.ok ? "" : "text-destructive")}>
+                        · {t.ok ? "berhasil" : "gagal"}: {t.summary} · {(t.ms / 1000).toFixed(1).replace(".", ",")} dtk
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : m.content.searches?.length ? (
                 <p className="mb-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                   <Search className="size-3.5" /> Mencari di knowledge:
                   {m.content.searches.map((q, i) => (

@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { Composer } from "./composer";
 import { MessageItem } from "./message-item";
 import { readNdjson, type UIMessage } from "./types";
+import { supportsVision } from "@/lib/llm/capabilities";
 
 interface PlaygroundBot {
   id: string;
@@ -91,7 +92,7 @@ export function Playground({
   }, [messages]);
 
   const run = useCallback(
-    async (payload: { message?: string; regenerate?: boolean }) => {
+    async (payload: { message?: string; images?: { path: string; mime: string }[]; regenerate?: boolean }) => {
       setError(null);
       setStreaming(true);
       stickRef.current = true;
@@ -168,9 +169,12 @@ export function Playground({
     [bot.id, router],
   );
 
-  function send(text: string) {
-    setMessages((ms) => [...ms, { id: `tmp-u-${Date.now()}`, role: "user", text, status: "complete", feedback: 0 }]);
-    void run({ message: text });
+  function send(text: string, images: { path: string; mime: string; previewUrl: string }[] = []) {
+    setMessages((ms) => [
+      ...ms,
+      { id: `tmp-u-${Date.now()}`, role: "user", text, status: "complete", feedback: 0, ...(images.length ? { images: images.map((i) => ({ url: i.previewUrl })) } : {}) },
+    ]);
+    void run({ message: text || undefined, ...(images.length ? { images: images.map(({ path, mime }) => ({ path, mime })) } : {}) });
   }
 
   function regenerate() {
@@ -276,7 +280,14 @@ export function Playground({
             </Button>
           )}
           <div className="mx-auto max-w-3xl">
-            <Composer onSend={send} onStop={() => abortRef.current?.abort()} streaming={streaming} disabled={!!loadError} />
+            <Composer
+              onSend={send}
+              onStop={() => abortRef.current?.abort()}
+              streaming={streaming}
+              disabled={!!loadError}
+              botId={bot.id}
+              imagesSupported={supportsVision(bot.model)}
+            />
             <p className="mt-2 text-center text-xs text-muted-foreground"><span className="hidden sm:inline">Enter untuk kirim, Shift+Enter untuk baris baru. </span>Percakapan playground tersimpan.</p>
           </div>
         </div>

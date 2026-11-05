@@ -32,6 +32,10 @@ export interface ContextOptions {
   memories?: { content: string }[];
   /** Ringkasan bagian awal percakapan yang sudah tidak dikirim mentah. */
   summary?: string | null;
+  /** Data URL gambar (per path) untuk pesan pengguna terakhir. */
+  imageData?: Map<string, string>;
+  /** Model bisa melihat gambar. */
+  vision?: boolean;
 }
 
 function stripTags(text: string) {
@@ -86,9 +90,24 @@ export function buildMessages(
   ) as ChatMessage;
 
   const turns: ChatMessage[] = history
-    .filter((m) => (m.role === "user" || m.role === "assistant") && m.content?.text?.trim())
+    .filter((m) => (m.role === "user" || m.role === "assistant") && (m.content?.text?.trim() || m.content?.images?.length))
     .slice(-HISTORY_LIMIT)
-    .map((m) => ({ role: m.role as "user" | "assistant", content: m.role === "assistant" ? stripCitationMarks(m.content.text) : m.content.text }));
+    .map((m): ChatMessage => {
+      if (m.role === "assistant") return { role: "assistant", content: stripCitationMarks(m.content.text) };
+      const images = m.content.images ?? [];
+      if (!images.length) return { role: "user", content: m.content.text };
+      const urls = images.map((i) => opts.imageData?.get(i.path)).filter((u): u is string => !!u);
+      if (urls.length)
+        return {
+          role: "user",
+          content: [{ type: "text", text: m.content.text || "(Pengguna mengirim gambar tanpa teks.)" }, ...urls.map((url) => ({ type: "image_url" as const, image_url: { url } }))],
+        };
+      // Gambar lama (atau model tanpa kemampuan gambar): cukup keterangan teks.
+      const note = opts.vision === false
+        ? `[Pengguna melampirkan ${images.length} gambar, tetapi model ini tidak bisa melihat gambar. Beri tahu pengguna dengan sopan.]`
+        : `[Pengguna melampirkan ${images.length} gambar sebelumnya.]`;
+      return { role: "user", content: `${m.content.text}\n${note}`.trim() };
+    });
 
   // Riwayat harus diawali pesan user.
   while (turns.length && turns[0].role !== "user") turns.shift();

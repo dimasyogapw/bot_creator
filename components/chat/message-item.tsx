@@ -30,7 +30,10 @@ export function MessageItem({
   if (m.role === "user") {
     return (
       <div className="flex justify-end" data-role="user">
-        <div className="max-w-[85%] rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-[15px] whitespace-pre-wrap text-primary-foreground">{m.text}</div>
+        <div className="flex max-w-[85%] flex-col items-end gap-1.5">
+          {m.images?.length ? <UserImages images={m.images} /> : null}
+          {m.text && <div className="rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-[15px] whitespace-pre-wrap text-primary-foreground">{m.text}</div>}
+        </div>
       </div>
     );
   }
@@ -110,6 +113,19 @@ export function MessageItem({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+export function UserImages({ images }: { images: { url: string }[] }) {
+  return (
+    <div className="flex flex-wrap justify-end gap-1.5" data-testid="user-images">
+      {images.map((img, i) => (
+        <a key={i} href={img.url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-xl border outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={img.url} alt={`Gambar dari pengguna ${i + 1}`} className="max-h-48 max-w-48 object-cover" />
+        </a>
+      ))}
     </div>
   );
 }

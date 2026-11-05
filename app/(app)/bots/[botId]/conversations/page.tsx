@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MessagesSquare, ThumbsDown, ThumbsUp } from "lucide-react";
+import { Hand, MessagesSquare, ThumbsDown, ThumbsUp } from "lucide-react";
 import { z } from "zod";
 import { getBotOr404 } from "@/lib/bots/queries";
 import { getUser } from "@/lib/supabase/server";
@@ -15,6 +15,7 @@ const PAGE_SIZE = 30;
 const qSchema = z.object({
   channel: z.enum(CHANNELS as [Channel, ...Channel[]]).optional().catch(undefined),
   feedback: z.enum(["negative"]).optional().catch(undefined),
+  handoff: z.enum(["open"]).optional().catch(undefined),
   page: z.coerce.number().int().min(1).max(1000).catch(1).default(1),
 });
 
@@ -27,6 +28,7 @@ interface Row {
   message_count: number;
   thumbs_up: number;
   thumbs_down: number;
+  open_handoffs: number;
 }
 
 export default async function ConversationsPage({
@@ -42,22 +44,24 @@ export default async function ConversationsPage({
 
   let query = supabase
     .from("conversation_overview")
-    .select("id, channel, title, end_user_name, updated_at, message_count, thumbs_up, thumbs_down")
+    .select("id, channel, title, end_user_name, updated_at, message_count, thumbs_up, thumbs_down, open_handoffs")
     .eq("bot_id", bot.id)
     .order("updated_at", { ascending: false })
     .range(0, q.page * PAGE_SIZE); // satu baris ekstra untuk tahu masih ada halaman berikutnya
   if (q.channel) query = query.eq("channel", q.channel);
   if (q.feedback === "negative") query = query.gt("thumbs_down", 0);
+  if (q.handoff === "open") query = query.gt("open_handoffs", 0);
   const { data, error } = await query.returns<Row[]>();
   if (error) console.error("[conversations] gagal memuat", error);
   const rows = (data ?? []).slice(0, q.page * PAGE_SIZE);
   const hasMore = (data?.length ?? 0) > q.page * PAGE_SIZE;
 
-  const href = (patch: Partial<{ channel: string | undefined; feedback: string | undefined; page: number }>) => {
-    const next = { channel: q.channel, feedback: q.feedback, page: undefined as number | undefined, ...patch };
+  const href = (patch: Partial<{ channel: string | undefined; feedback: string | undefined; handoff: string | undefined; page: number }>) => {
+    const next = { channel: q.channel, feedback: q.feedback, handoff: q.handoff, page: undefined as number | undefined, ...patch };
     const usp = new URLSearchParams();
     if (next.channel) usp.set("channel", next.channel);
     if (next.feedback) usp.set("feedback", next.feedback);
+    if (next.handoff) usp.set("handoff", next.handoff);
     if (next.page && next.page > 1) usp.set("page", String(next.page));
     const s = usp.toString();
     return `/bots/${bot.id}/conversations${s ? `?${s}` : ""}`;
@@ -89,6 +93,9 @@ export default async function ConversationsPage({
         >
           <ThumbsDown className="size-3.5" /> Ada jempol bawah
         </a>
+        <a href={href({ handoff: q.handoff ? undefined : "open" })} className={chip(q.handoff === "open")} aria-current={q.handoff === "open" ? "true" : undefined}>
+          <Hand className="size-3.5" /> Butuh manusia
+        </a>
       </nav>
 
       {error ? (
@@ -101,11 +108,11 @@ export default async function ConversationsPage({
       ) : rows.length === 0 ? (
         <div className="flex flex-col items-center rounded-xl border border-dashed px-6 py-12 text-center">
           <MessagesSquare className="mb-3 size-8 text-muted-foreground" />
-          <p className="font-medium">{q.channel || q.feedback ? "Tidak ada percakapan dengan filter ini" : "Belum ada percakapan"}</p>
+          <p className="font-medium">{q.channel || q.feedback || q.handoff ? "Tidak ada percakapan dengan filter ini" : "Belum ada percakapan"}</p>
           <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-            {q.channel || q.feedback ? "Coba hapus filter." : "Percakapan dari Playground (dan nanti link publik, widget, Telegram) akan muncul di sini."}
+            {q.channel || q.feedback || q.handoff ? "Coba hapus filter." : "Percakapan dari Playground (dan nanti link publik, widget, Telegram) akan muncul di sini."}
           </p>
-          {!q.channel && !q.feedback && (
+          {!q.channel && !q.feedback && !q.handoff && (
             <Button asChild className="mt-4">
               <Link href={`/bots/${bot.id}/playground`}>Buka Playground</Link>
             </Button>
@@ -131,6 +138,11 @@ export default async function ConversationsPage({
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
+                    {r.open_handoffs > 0 && (
+                      <Badge className="bg-destructive/10 text-destructive" data-testid="handoff-badge">
+                        <Hand /> Butuh manusia
+                      </Badge>
+                    )}
                     {r.thumbs_up > 0 && (
                       <span className="inline-flex items-center gap-1" aria-label={`${r.thumbs_up} jempol atas`}>
                         <ThumbsUp className="size-3.5" /> {r.thumbs_up}
