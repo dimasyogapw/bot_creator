@@ -27,6 +27,8 @@ export default defineConfig({
         command: `npm run start -- -p ${PORT}`,
         url: `http://localhost:${PORT}/login`,
         reuseExistingServer: true,
+        // Izinkan server mock webhook di localhost khusus test lokal (tidak pernah aktif di Vercel).
+        env: { E2E_ALLOW_PRIVATE_HOSTS: "localhost" },
         timeout: 120_000,
       },
 });
