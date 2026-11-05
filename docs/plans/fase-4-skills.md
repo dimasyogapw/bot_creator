@@ -1,4 +1,4 @@
-# Rencana Fase 4: Skills (disusun 2026-11-05, menunggu persetujuan owner)
+# Rencana Fase 4: Skills (disusun 2026-11-05, disetujui owner 2026-11-05)
 
 ## Tujuan
 Setiap bot bisa diberi kemampuan tambahan (skill) yang bisa dinyalakan/dimatikan dan dikonfigurasi owner tanpa coding.
@@ -22,6 +22,13 @@ Setiap bot bisa diberi kemampuan tambahan (skill) yang bisa dinyalakan/dimatikan
 6. `handoff_to_human`: bot mencatat permintaan "bicara dengan manusia" (alasan + ringkasan), tampil di aplikasi (badge di tab Percakapan), opsional kirim notifikasi ke webhook n8n (mis. diteruskan ke WhatsApp/Telegram/email owner).
 7. Gambar dari pengguna: tombol lampirkan/tempel gambar di Playground (maks 5 MB, JPG/PNG/WebP), disimpan di storage privat, dikirim ke model yang mendukung gambar. Model yang tidak mendukung: tombol dinonaktifkan dengan penjelasan.
 8. (Usulan tambahan) `capture_lead` (simpan data pelanggan): bot mengumpulkan data yang owner tentukan (mis. nama, nomor HP, kebutuhan), menyimpannya ke tabel, owner melihat daftar dan mengunduh CSV, opsional dikirim ke webhook n8n.
+
+## Keputusan owner (2026-11-05, ikut semua rekomendasi)
+- `web_search` masuk fase 4 (owner membuat akun Tavily dan mengisi API key).
+- Rich media: gambar dari pengguna dulu; output kartu/tombol/gambar di fase 5/7.
+- Discord ditambahkan ke fase 7, Instagram ditunda.
+- `capture_lead` masuk fase 4.
+- Notifikasi handoff: di aplikasi + opsional webhook n8n.
 
 ## Teknis
 - Registry skill: satu file per tipe skill berisi skema konfigurasi (Zod), definisi tool untuk model, dan fungsi eksekusi. Menambah tipe baru cukup satu file.

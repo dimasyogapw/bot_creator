@@ -22,13 +22,20 @@ Bot bisa dites di dashboard, lalu dipublikasikan lewat link publik, widget websi
 | 1 | Login owner, CRUD bot, playground chat dengan streaming, asisten "Bantu buatkan persona" | selesai |
 | 2 | Knowledge: upload PDF/DOCX/TXT/MD/URL, pencarian, sitasi | selesai 2026-11-05 |
 | 3 | Riwayat percakapan, memory jangka panjang per end user | selesai 2026-11-05 |
-| 4 | Skills: tool yang bisa dipasang per bot (knowledge search, webhook HTTP, dll.) | |
+| 4 | Skills: tool yang bisa dipasang per bot (knowledge search, webhook HTTP/integrasi API, jam/tanggal, baca halaman web, cari di internet, alihkan ke manusia, simpan data pelanggan) + gambar dari pengguna | |
 | 5 | Link publik per bot, widget embed, rate limit | |
 | 6 | Eval set per bot, analytics dasar (jumlah chat, token, biaya) | |
-| 7 | Integrasi Telegram, lalu WhatsApp | |
+| 7 | Integrasi Telegram, lalu WhatsApp, lalu Discord | |
 
 ### Asisten persona (ditambahkan 2026-11-04, fase 1)
 Saat membuat atau mengedit bot, owner bisa menjawab beberapa pertanyaan singkat (tujuan bot, target pengguna, gaya bahasa, hal yang boleh dan tidak boleh dibahas, contoh pertanyaan). Model ringan lalu menyusun draf system prompt dan pesan sambutan. Hasilnya hanya draf: owner tetap bisa mengedit atau menulis sendiri. Fitur ini opsional dan tidak pernah menyimpan otomatis tanpa owner menekan Simpan.
+
+### Tambahan fase 4 (disetujui owner 2026-11-05)
+- **Cari di internet** (`web_search`) lewat layanan pencarian eksternal (Tavily), dan **baca halaman web** (`web_fetch`).
+- **Gambar dari pengguna**: pengguna bisa melampirkan gambar, bot membacanya (hanya model yang mendukung gambar). Bot mengirim kartu/tombol/gambar ke pengguna dikerjakan bersama channel di fase 5/7.
+- **Simpan data pelanggan** (`capture_lead`): bot mengumpulkan data yang ditentukan owner, owner bisa melihat dan mengunduh CSV.
+- **Alihkan ke manusia**: permintaan tampil di aplikasi, opsional diteruskan ke webhook (mis. n8n).
+- **Discord** ditambahkan ke fase 7 (setelah Telegram dan WhatsApp). **Instagram ditunda** (butuh akun bisnis Meta dan review aplikasi).
 
 ## 5. Di luar scope (JANGAN dibangun)
 - Multi-user, tim, role, billing, SaaS.
