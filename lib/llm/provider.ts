@@ -45,6 +45,8 @@ export interface ChatOptions {
   maxTokens?: number;
   tools?: ChatTool[];
   toolChoice?: "auto" | "none";
+  /** Pencarian internet bawaan model (Claude/Gemini lewat SumoPod). Lihat lib/llm/capabilities.ts. */
+  webSearch?: boolean;
   signal?: AbortSignal;
 }
 
@@ -61,6 +63,7 @@ export async function chat(opts: ChatOptions) {
       temperature: opts.temperature,
       max_tokens: opts.maxTokens,
       tools: opts.tools,
+      ...(opts.webSearch ? { web_search_options: { search_context_size: "low" as const } } : {}),
     },
     { signal: opts.signal },
   );
@@ -75,6 +78,7 @@ export async function chatStream(opts: ChatOptions) {
       max_tokens: opts.maxTokens,
       tools: opts.tools,
       tool_choice: opts.tools ? opts.toolChoice : undefined,
+      ...(opts.webSearch ? { web_search_options: { search_context_size: "low" as const } } : {}),
       stream: true,
       stream_options: { include_usage: true },
     },

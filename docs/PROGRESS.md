@@ -6,7 +6,7 @@
 | 1 Fondasi + playground | **selesai** (disetujui owner 2026-11-04) | live di https://bot-creator-three.vercel.app |
 | 2 Knowledge | **selesai, menunggu review owner** (PR ke main) | DoD 1 sampai 5 lulus di test otomatis |
 | 3 Percakapan + memory | **selesai** (PR #5 di-merge owner 2026-11-05) | DoD 1 sampai 6 lulus di Production |
-| 4 Skills | belum | |
+| 4 Skills | **selesai, menunggu review owner** (PR ke main) | DoD 1 sampai 9 lulus (baca halaman web dites ke Production setelah merge) |
 | 5 Publikasi | belum | |
 | 6 Evals + analytics | belum | |
 | 7 Telegram / WhatsApp | belum | |
@@ -159,5 +159,49 @@ Keputusan: default bot `claude-haiku-5-5` (murah, tercepat, prompt caching jalan
 - Output model ringan yang rusak tidak mengubah memory sama sekali.
 - Filter di tab Percakapan memakai tautan biasa (muat ulang halaman), bukan navigasi cepat Next.js. Alasan: klik filter cepat berturut-turut membuat navigasi tersangkut (ditemukan oleh test).
 - Migrasi fase 3 yang sudah diterapkan ke Supabase: `phase3_end_users_memories`.
+
+## Fase 4: Skills (2026-11-05)
+
+### Selesai
+- **Registry skill** (`lib/skills/`): satu file per tipe skill berisi skema konfigurasi, definisi tool untuk model, dan fungsi eksekusi. `runBot` memakai semua skill aktif lewat registry (loop tool maks 5 iterasi). Detail tiap panggilan (nama, argumen singkat, berhasil/gagal, durasi, ringkasan) disimpan di `messages.content.tools`.
+- Skill: **Cari di knowledge** (dipindah dari fase 2, kini bisa dimatikan), **Integrasi API/webhook** (bisa banyak per bot), **Jam dan tanggal** (zona waktu, bawaan WIB), **Baca halaman web**, **Cari di internet** (pencarian bawaan model lewat SumoPod; Tavily cadangan opsional), **Alihkan ke manusia**, **Simpan data pelanggan**.
+- Webhook: URL dengan `{parameter}`, GET (query) / POST (JSON), allowlist domain wajib (juga untuk redirect), timeout 1 sampai 20 detik, respons maks 256 KB, header rahasia di Supabase Vault (tidak pernah dikirim ke browser, nilai yang dipantulkan API disensor sebelum dibaca model).
+- Semua HTTP keluar dipusatkan di `lib/net/safe-http.ts` (dari pengambil URL fase 2): tolak IP privat/lokal saat koneksi, port standar, batas ukuran/waktu.
+- Tab **Skills**: saklar per skill, pengaturan, petunjuk untuk bot, tombol **Tes skill** (skill yang menyimpan data berjalan dalam mode tes), form integrasi API (parameter, header rahasia).
+- **Alihkan ke manusia**: permintaan tercatat, badge "Butuh manusia" + filter di tab Percakapan, banner di detail dengan tombol "Tandai selesai", opsional notifikasi ke webhook (n8n).
+- **Simpan data pelanggan**: field bisa diatur (bawaan nama, nomor HP/WA, kebutuhan), data wajib ditanyakan dulu, nomor kartu/NIK/rekening ditolak, halaman data pelanggan + unduh CSV (aman dari rumus spreadsheet), opsional notifikasi webhook.
+- **Gambar dari pengguna**: lampirkan/tempel gambar di Playground (JPG/PNG/WebP/GIF, maks 5 MB, maks 4), upload langsung ke bucket privat `chat-uploads`, dikirim ke model yang bisa melihat gambar (Claude, Gemini, GPT-4o/4.1/5). Model lain: tombol nonaktif dengan penjelasan. Gambar tampil di chat dan tab Percakapan (signed URL 1 jam), ikut terhapus saat bot dihapus.
+- Chat menampilkan indikator per skill ("Memanggil Cek ongkir...", "Mencari di internet...").
+
+### Hasil verifikasi
+- Lint, typecheck bersih. Unit test 121 lulus. Build berhasil.
+- Playwright lokal: 28 lulus, 2 dilewati (tambah URL dan baca halaman web butuh internet dari server aplikasi).
+  1. Webhook "Cek ongkir" ke server API tiruan: bot memanggilnya untuk "ongkir ke Bandung" dan menjawab Rp23.500 dari hasilnya; header rahasia benar-benar terkirim ke API.
+  2. Webhook dimatikan: tidak ada panggilan sama sekali ke server tiruan.
+  3. Domain di luar allowlist ditolak saat menyimpan.
+  4. Webhook timeout (2 detik): bot menjawab sopan, panggilan tercatat gagal.
+  5. "Jam berapa sekarang?" dijawab dengan jam WIB yang benar.
+  6. "Siapa pemenang Ballon d'Or pria 2025?" dengan skill Cari di internet: indikator "Mencari di internet" muncul, bot menjawab Ousmane Dembélé dengan 4 sumber, pencarian tercatat di tab Percakapan.
+  7. "Saya mau bicara dengan admin manusia" tercatat, muncul di tab Percakapan, bisa ditandai selesai.
+  8. Gambar merah diupload, bot menjawab "merah"; gambar tetap tampil setelah refresh.
+  9. Nilai header rahasia tidak ada di HTML halaman, tidak ada di tabel `skills`, dan disensor dari hasil API yang memantulkannya.
+  - Simpan data pelanggan: data "Rina" tersimpan, tampil di halaman data, ada di CSV.
+- Keamanan: advisor security bersih (kecuali saran lama leaked password protection). Tanpa login ditolak di `skills`, `handoff_requests`, `leads`, dan fungsi rahasia. Rahasia Vault: owner lain ditolak, ikut terhapus saat skill dihapus (dicek). Fungsi rahasia hanya bisa dipanggil server. Kunci rahasia tidak ada di file browser.
+- Satu kali Supabase membalas "Internal server error" saat mengambil riwayat chat (test gagal sekali, lulus saat diulang, tidak terulang). Dicatat sebagai gangguan sesaat Supabase.
+
+### Belum / catatan
+- **Baca halaman web** belum teruji di sini (server aplikasi di Claude Code web tidak bisa membuka situs luar). Test otomatisnya dijalankan ke Production setelah merge.
+- **Biaya Cari di internet**: satu pertanyaan dengan pencarian tercatat sekitar USD 0,011 (hasil pencarian sekitar 14 ribu token ikut dibaca model), jauh di atas jawaban biasa. Karena itu skill ini mati secara bawaan.
+- Cari di internet hanya untuk model Claude/Gemini (diuji: GPT-5.4 mini tidak bisa, Grok ditolak provider). Model lain: skill ditandai tidak tersedia, kecuali `TAVILY_API_KEY` diisi.
+- Webhook ke server lokal di test memakai env `E2E_ALLOW_PRIVATE_HOSTS=localhost` (hanya lokal, diabaikan di Vercel).
+- Bot mengirim kartu/tombol/gambar ke pengguna: fase 5/7 (keputusan owner).
+- Biaya pemakaian Tavily belum dicatat di aplikasi (fase 6).
+
+### Keputusan penting
+- Cari di internet memakai pencarian bawaan model lewat SumoPod (`web_search_options`), bukan Tavily (keputusan owner: tidak mau daftar layanan lain). SumoPod mengirim pencarian itu sebagai panggilan alat ber-id `srvtoolu_`; `runBot` mencatatnya dan tidak menjalankannya sendiri (sudah dijalankan provider).
+- Fungsi pembaca/penulis rahasia Vault hanya untuk server (secret key), setelah kepemilikan skill dibuktikan lewat RLS. Alasan: peringatan advisor keamanan; owner pun tidak perlu membaca balik rahasia dari browser.
+- Kartu skill bawaan memakai kunci tetap per tipe (bug ditemukan test: kartu tertutup sendiri saat skill pertama kali disimpan).
+- Izin test lokal hanya untuk `localhost`, bukan `127.0.0.1` (bug ditemukan test: izin yang terlalu lebar membuat test penolakan alamat lokal gagal).
+- Migrasi fase 4 yang sudah diterapkan ke Supabase: `phase4_skills`, `skill_secrets_server_only`.
 
 (diisi Claude Code di akhir tiap fase)

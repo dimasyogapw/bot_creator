@@ -7,6 +7,8 @@ import { getUser } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Transcript, type TranscriptMessage } from "@/components/conversations/transcript";
+import { signImageUrls } from "@/lib/chat/images";
+import { HandoffBanner, type HandoffItem } from "@/components/conversations/handoff-banner";
 import { CHANNEL_LABELS, formatDateTime } from "@/lib/conversations/labels";
 import type { Channel } from "@/lib/db/types";
 
@@ -43,6 +45,13 @@ export default async function ConversationDetailPage({ params }: { params: Promi
     .returns<TranscriptMessage[]>();
   if (msgErr) throw msgErr;
   const messages = msgs ?? [];
+  const imageUrls = Object.fromEntries(await signImageUrls(supabase, messages));
+  const { data: handoffs } = await supabase
+    .from("handoff_requests")
+    .select("id, reason, summary, status, created_at")
+    .eq("conversation_id", conv.id)
+    .order("created_at", { ascending: false })
+    .returns<HandoffItem[]>();
   const totalCost = messages.reduce((s, m) => s + Number(m.cost_usd ?? 0), 0);
 
   return (
@@ -75,8 +84,9 @@ export default async function ConversationDetailPage({ params }: { params: Promi
             <p className="mt-2 whitespace-pre-wrap text-muted-foreground">{conv.summary}</p>
           </details>
         )}
+        <HandoffBanner botId={bot.id} items={handoffs ?? []} />
       </header>
-      <Transcript bot={{ name: bot.name, avatar_url: bot.avatar_url }} messages={messages} />
+      <Transcript bot={{ name: bot.name, avatar_url: bot.avatar_url }} messages={messages} imageUrls={imageUrls} />
     </main>
   );
 }

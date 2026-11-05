@@ -24,8 +24,9 @@ import { runBot, type BotEvent } from "@/lib/bot/runBot";
 
 /** Supabase palsu minimal di memori. */
 type Row = Record<string, unknown>;
-function fakeDb(state: { bots: Row[]; conversations: Row[]; messages: Row[]; model_prices: Row[]; end_users?: Row[] }) {
+function fakeDb(state: { bots: Row[]; conversations: Row[]; messages: Row[]; model_prices: Row[]; end_users?: Row[]; skills?: Row[] }) {
   state.end_users ??= [];
+  state.skills ??= [];
   let seq = 0;
   const now = () => new Date(Date.now() + seq++).toISOString();
   return {
@@ -167,7 +168,7 @@ describe("runBot", () => {
 
     const events = await collect(runBot({ db: fakeDb(state) as never, botId: "b1", userMessage: "berapa harga paket A?", channel: "playground" }));
     expect(events.map((e) => e.type)).toEqual(["start", "tool", "citations", "delta", "done"]);
-    expect(events[1]).toEqual({ type: "tool", name: "search_knowledge", query: "harga paket A" });
+    expect(events[1]).toEqual({ type: "tool", name: "search_knowledge", label: "Mencari di knowledge", detail: "harga paket A" });
 
     const first = chatStream.mock.calls[0][0];
     expect(first.tools[0].function.name).toBe("search_knowledge");
@@ -262,6 +263,36 @@ describe("runBot", () => {
       expect(JSON.stringify(msgs)).not.toContain("pesan lama");
       expect(msgs.at(-1)).toEqual({ role: "user", content: "lanjut" });
     });
+  });
+
+  it("pencarian bawaan model: opsi provider aktif, panggilan server tidak dijalankan aplikasi, tercatat", async () => {
+    state.bots[0].model = "claude-haiku-5-5";
+    state.skills = [{ id: "s1", bot_id: "b1", type: "web_search", name: "Cari", tool_name: "web_search", description: "", config: {}, enabled: true, created_at: "1" }];
+    async function* serverSearch() {
+      yield { choices: [{ delta: { tool_calls: [{ index: 0, id: "srvtoolu_01abc", function: { name: "web_search", arguments: "" } }] } }] };
+      yield { choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: '{"query": "ballon d or 2025"}' } }] } }] };
+      yield { choices: [{ delta: { content: "Pemenangnya Ousmane Dembélé." }, finish_reason: "stop" }] };
+      yield { choices: [], usage: { prompt_tokens: 14000, completion_tokens: 50, cost: 0.011 } };
+    }
+    chatStream.mockResolvedValue(serverSearch());
+    const events = await collect(runBot({ db: fakeDb(state) as never, botId: "b1", userMessage: "siapa pemenang ballon d'or 2025?", channel: "playground" }));
+    expect(chatStream).toHaveBeenCalledTimes(1); // tidak ada iterasi kedua
+    expect(chatStream.mock.calls[0][0].webSearch).toBe(true);
+    expect(chatStream.mock.calls[0][0].tools).toBeUndefined(); // tidak dikirim sebagai function tool
+    expect(events.map((e) => e.type)).toEqual(["start", "tool", "delta", "done"]);
+    const saved = state.messages.find((m) => m.role === "assistant")!;
+    expect((saved.content as { tools: unknown[] }).tools).toEqual([
+      { name: "web_search", type: "web_search", label: "Mencari di internet", detail: "ballon d or 2025", ok: true, ms: 0, summary: "pencarian bawaan model" },
+    ]);
+  });
+
+  it("model tanpa pencarian bawaan: web_search tidak aktif tanpa key Tavily", async () => {
+    state.bots[0].model = "deepseek-v4-flash";
+    state.skills = [{ id: "s1", bot_id: "b1", type: "web_search", name: "Cari", tool_name: "web_search", description: "", config: {}, enabled: true, created_at: "1" }];
+    chatStream.mockResolvedValue(fakeStream(["ok"]));
+    await collect(runBot({ db: fakeDb(state) as never, botId: "b1", userMessage: "hai", channel: "playground" }));
+    expect(chatStream.mock.calls[0][0].webSearch).toBe(false);
+    expect(chatStream.mock.calls[0][0].tools).toBeUndefined();
   });
 });
 

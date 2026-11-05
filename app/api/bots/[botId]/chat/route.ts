@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { getUser } from "@/lib/supabase/server";
 import { after } from "next/server";
+import { IMAGE_TYPES, imagePathPattern, MAX_IMAGES_PER_MESSAGE, type ImageMime } from "@/lib/llm/capabilities";
 import { PLAYGROUND_END_USER, runBot, type BotEvent } from "@/lib/bot/runBot";
 
 export const runtime = "nodejs";
@@ -11,10 +12,14 @@ export const maxDuration = 60;
 const bodySchema = z
   .object({
     conversationId: z.string().uuid().nullish(),
-    message: z.string().trim().min(1).max(8000).optional(),
+    message: z.string().trim().max(8000).optional(),
+    images: z
+      .array(z.object({ path: z.string().max(200), mime: z.enum(Object.keys(IMAGE_TYPES) as [ImageMime, ...ImageMime[]]) }))
+      .max(MAX_IMAGES_PER_MESSAGE)
+      .optional(),
     regenerate: z.boolean().optional(),
   })
-  .refine((b) => (b.regenerate ? !!b.conversationId : !!b.message), { message: "Pesan kosong" });
+  .refine((b) => (b.regenerate ? !!b.conversationId : !!b.message || !!b.images?.length), { message: "Pesan kosong" });
 
 /** Adapter channel playground: meneruskan event runBot sebagai NDJSON. */
 export async function POST(req: Request, ctx: { params: Promise<{ botId: string }> }) {
@@ -29,6 +34,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ botId: string 
   } catch {
     return json({ error: "Format permintaan salah." }, 400);
   }
+
+  // Gambar hanya boleh dari folder upload bot ini (Storage RLS juga membatasi ke pemilik bot).
+  const pattern = imagePathPattern(botId);
+  if (body.images?.some((i) => !pattern.test(i.path))) return json({ error: "Gambar tidak valid." }, 400);
 
   const { supabase: db, user } = await getUser();
   if (!user) return json({ error: "Sesi berakhir. Silakan login lagi." }, 401);
@@ -60,6 +69,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ botId: string 
           botId,
           conversationId: body.conversationId,
           userMessage: body.message,
+          userImages: body.images,
           regenerate: body.regenerate,
           channel: "playground",
           endUser: PLAYGROUND_END_USER,

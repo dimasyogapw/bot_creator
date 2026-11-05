@@ -6,6 +6,7 @@ import { z } from "zod";
 import { getUser } from "@/lib/supabase/server";
 import { getChatModels } from "@/lib/llm/models";
 import { generatePersona } from "@/lib/bot/persona";
+import { removeBotImages } from "@/lib/chat/images";
 import { botInputSchema, botSettingsSchema, fieldErrors, personaAnswersSchema, slugify, type PersonaResult } from "./schema";
 
 export type ActionResult<T = undefined> =
@@ -92,6 +93,7 @@ export async function deleteBot(botId: string): Promise<ActionResult> {
       const { error: stErr } = await supabase.storage.from("knowledge").remove(paths);
       if (stErr) console.warn("[deleteBot] file knowledge gagal dihapus", stErr);
     }
+    await removeBotImages(supabase, botId);
     const { error } = await supabase.from("bots").delete().eq("id", botId);
     if (error) throw error;
   } catch (e) {

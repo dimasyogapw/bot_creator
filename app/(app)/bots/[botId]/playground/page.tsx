@@ -5,6 +5,7 @@ import { getBotOr404 } from "@/lib/bots/queries";
 import { getChatModels } from "@/lib/llm/models";
 import { getUser } from "@/lib/supabase/server";
 import type { Message } from "@/lib/db/types";
+import { signImageUrls } from "@/lib/chat/images";
 
 export const dynamic = "force-dynamic";
 
@@ -43,13 +44,16 @@ export default async function PlaygroundPage({
       console.error("[playground] gagal memuat pesan", error);
       loadError = "Riwayat percakapan gagal dimuat.";
     }
-    messages = ((data ?? []) as unknown as Message[]).map((m) => ({
+    const rows = (data ?? []) as unknown as Message[];
+    const imageUrls = await signImageUrls(supabase, rows);
+    messages = rows.map((m) => ({
       id: m.id,
       role: m.role as "user" | "assistant",
       text: m.content?.text ?? "",
       status: m.status,
       feedback: m.feedback,
       citations: m.content?.citations,
+      ...(m.content?.images?.length ? { images: m.content.images.map((i) => ({ url: imageUrls.get(i.path) ?? "" })).filter((i) => i.url) } : {}),
     }));
   }
   if (convErr) console.error("[playground] gagal memuat percakapan", convErr);

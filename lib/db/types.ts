@@ -42,12 +42,26 @@ export interface Citation {
   pages?: number[];
 }
 
+/** Catatan satu panggilan skill dalam satu jawaban (tab Percakapan). */
+export interface ToolCallRecord {
+  name: string;
+  type: string;
+  label: string;
+  detail?: string;
+  ok: boolean;
+  ms: number;
+  summary: string;
+}
+
 export interface MessageContent {
   text: string;
   ttft_ms?: number;
   citations?: Citation[];
   /** Kueri pencarian knowledge yang dijalankan bot untuk jawaban ini. */
   searches?: string[];
+  tools?: ToolCallRecord[];
+  /** Gambar yang dilampirkan pengguna (path di bucket chat-uploads). */
+  images?: { path: string; mime: string }[];
 }
 
 export interface Message {

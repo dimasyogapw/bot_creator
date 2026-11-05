@@ -1,13 +1,12 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { chatStream } from "@/lib/llm/provider";
-import type { Bot, Channel, Citation, Message, ModelPrice } from "@/lib/db/types";
-import type { ChatTool } from "@/lib/llm/provider";
-import { hasReadyKnowledge, searchKnowledge } from "@/lib/knowledge/search";
-import { assignCitations, formatToolResult, usedCitations } from "@/lib/knowledge/format";
+import type { Bot, Channel, Citation, Message, ModelPrice, ToolCallRecord } from "@/lib/db/types";
+import { usedCitations } from "@/lib/knowledge/format";
+import { activeTools, executeSkill, type ActiveTools } from "@/lib/skills/runtime";
 import { extractMemories, loadMemories } from "@/lib/memory/extract";
 import { maybeSummarize } from "./summary";
-import { searchArgsSchema } from "@/lib/knowledge/schema";
+import { isServerToolCall, supportsVision } from "@/lib/llm/capabilities";
 import { buildMessages, titleFromMessage, HISTORY_LIMIT } from "./prompt";
 import { computeCostUsd, normalizeUsage, type ProviderUsage } from "./pricing";
 
@@ -19,7 +18,7 @@ import { computeCostUsd, normalizeUsage, type ProviderUsage } from "./pricing";
 export type BotEvent =
   | { type: "start"; conversationId: string; userMessageId: string | null }
   | { type: "delta"; text: string }
-  | { type: "tool"; name: "search_knowledge"; query: string }
+  | { type: "tool"; name: string; label: string; detail?: string }
   | { type: "citations"; citations: Citation[] }
   | { type: "done"; message: Message }
   | { type: "error"; message: string };
@@ -31,6 +30,8 @@ export interface RunBotParams {
   conversationId?: string | null;
   /** Pesan baru dari pengguna. Kosongkan bila regenerate. */
   userMessage?: string;
+  /** Gambar yang dilampirkan pengguna (sudah diupload ke bucket chat-uploads). */
+  userImages?: { path: string; mime: string }[];
   /** Ulangi jawaban terakhir: hapus jawaban bot terakhir, jawab ulang pesan user terakhir. */
   regenerate?: boolean;
   channel: Channel;
@@ -47,20 +48,6 @@ export interface RunBotParams {
 export const PLAYGROUND_END_USER = { externalId: "owner", displayName: "Owner (playground)" };
 
 export const MAX_TOOL_ITERATIONS = 5;
-
-export const SEARCH_KNOWLEDGE_TOOL = {
-  type: "function",
-  function: {
-    name: "search_knowledge",
-    description:
-      "Cari informasi di dokumen knowledge milik pemilik bot (file, halaman web, teks SOP). Pakai kata kunci yang spesifik dalam bahasa dokumen. Mengembalikan potongan dokumen bernomor untuk dikutip.",
-    parameters: {
-      type: "object",
-      properties: { query: { type: "string", description: "Kata kunci atau pertanyaan yang dicari" } },
-      required: ["query"],
-    },
-  },
-} satisfies ChatTool;
 
 function safeJson(s: string): unknown {
   try {
@@ -134,13 +121,13 @@ export async function* runBot(p: RunBotParams): AsyncGenerator<BotEvent> {
     summaryUntil = conv.summary_until;
     if (endUserId && !conv.end_user_id) await db.from("conversations").update({ end_user_id: endUserId }).eq("id", conversationId);
   } else {
-    if (p.regenerate || !p.userMessage) {
+    if (p.regenerate || (!p.userMessage && !p.userImages?.length)) {
       yield { type: "error", message: "Tidak ada pesan untuk dijawab." };
       return;
     }
     const { data: conv, error } = await db
       .from("conversations")
-      .insert({ bot_id: bot.id, channel: p.channel, title: titleFromMessage(p.userMessage), end_user_id: endUserId })
+      .insert({ bot_id: bot.id, channel: p.channel, title: titleFromMessage(p.userMessage || "Gambar"), end_user_id: endUserId })
       .select("id")
       .single();
     if (error || !conv) {
@@ -165,7 +152,7 @@ export async function* runBot(p: RunBotParams): AsyncGenerator<BotEvent> {
   } else {
     const { data: um, error } = await db
       .from("messages")
-      .insert({ conversation_id: conversationId, role: "user", content: { text: p.userMessage } })
+      .insert({ conversation_id: conversationId, role: "user", content: { text: p.userMessage ?? "", ...(p.userImages?.length ? { images: p.userImages } : {}) } })
       .select("id")
       .single();
     if (error || !um) {
@@ -198,6 +185,20 @@ export async function* runBot(p: RunBotParams): AsyncGenerator<BotEvent> {
     return;
   }
 
+  // 5b. Gambar di pesan pengguna terakhir: dikirim ke model sebagai data URL (hanya model yang bisa melihat gambar).
+  const imageData = new Map<string, string>();
+  const lastImages = history[history.length - 1].content?.images ?? [];
+  if (lastImages.length && supportsVision(bot.model)) {
+    for (const img of lastImages) {
+      const { data: file, error } = await db.storage.from("chat-uploads").download(img.path);
+      if (error || !file) {
+        console.error("[runBot] gagal membaca gambar", img.path, error);
+        continue;
+      }
+      imageData.set(img.path, `data:${img.mime};base64,${Buffer.from(await file.arrayBuffer()).toString("base64")}`);
+    }
+  }
+
   // 6. Memory end user (hanya jika memory bot aktif).
   let memories: { content: string }[] = [];
   if (bot.memory_enabled && endUserId) {
@@ -208,15 +209,18 @@ export async function* runBot(p: RunBotParams): AsyncGenerator<BotEvent> {
     }
   }
 
-  // 7. Knowledge aktif jika bot punya sumber ready (agentic RAG lewat tool).
-  let knowledgeOn = false;
+  // 7. Skill aktif bot (search_knowledge hanya jika ada sumber ready).
+  let skillTools: ActiveTools = { tools: [], byName: new Map(), native: new Map() };
   try {
-    knowledgeOn = await hasReadyKnowledge(db, bot.id);
+    skillTools = await activeTools(db, bot.id, bot.model);
   } catch (e) {
-    console.error("[runBot] gagal cek knowledge", e);
+    console.error("[runBot] gagal memuat skill", e);
   }
-  const tools = knowledgeOn ? [SEARCH_KNOWLEDGE_TOOL] : undefined;
-  const messages = buildMessages(bot, history, { knowledge: knowledgeOn, memoryEnabled: bot.memory_enabled && !!endUserId, memories, summary });
+  const tools = skillTools.tools.length ? skillTools.tools : undefined;
+  // Pencarian internet bawaan model: dijalankan provider sendiri, aplikasi hanya mencatatnya.
+  const nativeSearch = skillTools.native.get("web_search");
+  const knowledgeOn = skillTools.byName.has("search_knowledge");
+  const messages = buildMessages(bot, history, { knowledge: knowledgeOn, memoryEnabled: bot.memory_enabled && !!endUserId, memories, summary, imageData, vision: supportsVision(bot.model) });
 
   // 8. Kirim ke model + stream jawaban, dengan loop tool maksimal MAX_TOOL_ITERATIONS.
   const t0 = Date.now();
@@ -224,8 +228,10 @@ export async function* runBot(p: RunBotParams): AsyncGenerator<BotEvent> {
   let text = "";
   let usage: ProviderUsage | undefined;
   let status: Message["status"] = "complete";
-  let citations: Citation[] = [];
+  const citations: Citation[] = [];
   const searches: string[] = [];
+  const toolLog: ToolCallRecord[] = [];
+  const skillCtx = { db, bot, model: bot.model, conversationId, endUserId, citations };
 
   try {
     for (let iter = 0; iter <= MAX_TOOL_ITERATIONS; iter++) {
@@ -237,6 +243,7 @@ export async function* runBot(p: RunBotParams): AsyncGenerator<BotEvent> {
         tools,
         // Iterasi terakhir: paksa model menjawab tanpa memanggil tool lagi.
         toolChoice: tools ? (iter === MAX_TOOL_ITERATIONS ? "none" : "auto") : undefined,
+        webSearch: !!nativeSearch,
         signal: p.signal,
       });
       let iterText = "";
@@ -252,6 +259,8 @@ export async function* runBot(p: RunBotParams): AsyncGenerator<BotEvent> {
           yield { type: "delta", text: piece };
         }
         for (const tc of d?.tool_calls ?? []) {
+          // Pencarian bawaan model dimulai: tampilkan indikator saat itu juga.
+          if (tc.id && isServerToolCall(tc.id)) yield { type: "tool", name: "web_search", label: "Mencari di internet" };
           const c = (calls[tc.index] ??= { id: "", name: "", args: "" });
           if (tc.id) c.id = tc.id;
           if (tc.function?.name) c.name += tc.function.name;
@@ -260,7 +269,12 @@ export async function* runBot(p: RunBotParams): AsyncGenerator<BotEvent> {
         if (chunk.usage) usage = addUsage(usage, chunk.usage as ProviderUsage);
       }
 
-      const toolCalls = calls.filter(Boolean);
+      // Panggilan yang dijalankan provider (pencarian bawaan) sudah selesai di sisi provider: catat saja.
+      for (const c of calls.filter((x) => x && isServerToolCall(x.id))) {
+        const detail = (safeJson(c.args) as { query?: string } | null)?.query;
+        toolLog.push({ name: c.name, type: "web_search", label: "Mencari di internet", detail, ok: true, ms: 0, summary: "pencarian bawaan model" });
+      }
+      const toolCalls = calls.filter((x) => x && !isServerToolCall(x.id));
       if (!toolCalls.length || !tools) break;
 
       messages.push({
@@ -274,28 +288,22 @@ export async function* runBot(p: RunBotParams): AsyncGenerator<BotEvent> {
       });
       for (const [i, c] of toolCalls.entries()) {
         const callId = c.id || `call_${iter}_${i}`;
+        const r = skillTools.byName.get(c.name);
         let result: string;
-        if (c.name !== SEARCH_KNOWLEDGE_TOOL.function.name) {
+        if (!r) {
           result = `Alat "${c.name}" tidak tersedia.`;
         } else {
-          const args = searchArgsSchema.safeParse(safeJson(c.args));
-          if (!args.success) {
-            result = "Argumen tidak valid. Kirim {\"query\": \"kata kunci pencarian\"}.";
-          } else {
-            const query = args.data.query;
-            searches.push(query);
-            yield { type: "tool", name: "search_knowledge", query };
-            try {
-              const hits = await searchKnowledge(db, bot.id, query);
-              const r = assignCitations(hits, citations);
-              citations = r.citations;
-              result = formatToolResult(query, r.numbered);
-              yield { type: "citations", citations };
-            } catch (e) {
-              console.error("[runBot] search_knowledge gagal", e);
-              result = "Pencarian knowledge sedang gagal. Beri tahu pengguna bahwa informasinya belum bisa dicari saat ini.";
-            }
-          }
+          const args = safeJson(c.args);
+          const label = r.def.activityLabel(r.skill);
+          const detail = r.def.activityDetail?.(args);
+          if (r.skill.type === "search_knowledge" && detail) searches.push(detail);
+          yield { type: "tool", name: c.name, label, ...(detail ? { detail } : {}) };
+          const started = Date.now();
+          const before = citations.length;
+          const out = await executeSkill(skillCtx, r, args);
+          result = out.content;
+          toolLog.push({ name: c.name, type: r.skill.type, label, detail, ok: out.ok, ms: Date.now() - started, summary: out.summary });
+          if (citations.length !== before || r.skill.type === "search_knowledge") yield { type: "citations", citations: [...citations] };
         }
         messages.push({ role: "tool", tool_call_id: callId, content: result });
       }
@@ -329,6 +337,7 @@ export async function* runBot(p: RunBotParams): AsyncGenerator<BotEvent> {
         ttft_ms: ttft,
         ...(citations.length ? { citations: usedCitations(text, citations) } : {}),
         ...(searches.length ? { searches } : {}),
+        ...(toolLog.length ? { tools: toolLog } : {}),
       },
       model: bot.model,
       tokens_in: usage ? n.tokensIn : null,
