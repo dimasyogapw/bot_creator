@@ -5,7 +5,7 @@
 | 0 Persiapan | belum | ikuti docs/SETUP.md |
 | 1 Fondasi + playground | **selesai** (disetujui owner 2026-11-04) | live di https://bot-creator-three.vercel.app |
 | 2 Knowledge | **selesai, menunggu review owner** (PR ke main) | DoD 1 sampai 5 lulus di test otomatis |
-| 3 Percakapan + memory | belum | |
+| 3 Percakapan + memory | **selesai, menunggu review owner** (PR ke main) | DoD 1 sampai 6 lulus di test otomatis |
 | 4 Skills | belum | |
 | 5 Publikasi | belum | |
 | 6 Evals + analytics | belum | |
@@ -120,5 +120,43 @@ Keputusan: default bot `claude-haiku-5-5` (murah, tercepat, prompt caching jalan
 - Bug yang ditemukan dan diperbaiki saat verifikasi: kebijakan storage membaca nama bot sebagai nama file (semua upload ditolak). Diperbaiki dengan migrasi `20261104150000_fix_knowledge_storage_policy.sql`.
 - Vercel: `EMBEDDING_MODEL` dan `EMBEDDING_DIMENSIONS` sebelumnya hanya aktif untuk Production. Ditambah target Preview (nilai tidak diubah) supaya knowledge bisa dicoba di Preview.
 - Migrasi fase 2 yang sudah diterapkan ke Supabase: `phase2_knowledge`, `fix_knowledge_storage_policy`, `match_knowledge_term_coverage`, `knowledge_chunks_fk_index`.
+
+## Fase 3: Percakapan + memory (2026-11-05)
+
+### Selesai
+- Tab **Percakapan**: semua percakapan bot (judul, channel, pengguna, jumlah pesan, jempol atas/bawah, waktu), filter per channel dan "ada jempol bawah", "muat lebih banyak". Halaman detail: transkrip lengkap, sitasi, kueri pencarian knowledge, model/token/biaya/latensi per jawaban, ringkasan otomatis, jempol bisa diubah, tombol lanjutkan di Playground.
+- **Ringkasan otomatis**: jika pesan yang belum diringkas lebih dari 30, semua kecuali 10 terakhir diringkas model ringan (digabung dengan ringkasan lama). Model menerima ringkasan + pesan sesudahnya (maks 40).
+- **Memory per pengguna**: setelah tiap jawaban, model ringan memutuskan tambah/perbarui/hapus fakta. Maks 50 memory per pengguna. Memory dimasukkan ke konteks sebagai data, di blok terpisah setelah system prompt yang di-cache (prompt caching tetap jalan).
+- **Data sensitif ditolak 2 lapis**: instruksi ke model ringan + filter server (password/PIN/OTP dengan nilai, nomor kartu dengan cek Luhn, NIK/KK 16 digit, nomor rekening, nomor KTP/NPWP/paspor).
+- **Saklar memory per bot** di tab Memory. Mati secara bawaan (keputusan owner). Saat mati: memory tidak dibaca dan tidak dibuat; memory lama tidak dihapus.
+- **Tab Memory**: memory per pengguna, hapus satu, hapus semua (dengan konfirmasi).
+- Playground: owner = satu pengguna tetap "Owner (playground)" per bot. Panel setelan menampilkan status memory.
+- `runBot` menerima identitas end user dari channel dan fungsi "jalankan nanti" (dipasang lewat `after()` Next.js di route chat). Percakapan milik end user lain ditolak (persiapan fase 5).
+
+### Hasil verifikasi
+- Lint, typecheck bersih. Unit test 104 lulus. Build berhasil.
+- Playwright lokal: 19 lulus, 1 dilewati (test URL butuh internet). Test fase 3 lulus 2 putaran berturut-turut setelah perbaikan terakhir.
+  1. Percakapan A "Nama saya Budi dan saya suka kopi hitam tanpa gula"; percakapan baru B: bot menjawab "Nama kamu Budi, kamu suka kopi hitam tanpa gula".
+  2. Hapus semua memory di tab Memory, percakapan baru: bot tidak tahu nama.
+  3. Memory dimatikan: memory lama ("Sari") tidak dipakai, cerita baru (Medan, kucing Oyen) tidak disimpan.
+  4. Tab Percakapan: daftar, filter channel, detail dengan token/biaya, jempol bawah, filter "ada jempol bawah".
+  5. Percakapan 35+ pesan: ringkasan tersimpan, dan kode pesanan dari pesan pertama (sudah diringkas) tetap diingat.
+  6. Nomor kartu dan NIK yang diketik tidak masuk memory.
+- Keamanan: advisor security bersih (kecuali saran lama leaked password protection). Tanpa login ditolak di `end_users`, `memories`, `conversation_overview`. Owner lain tidak bisa membaca, menambah, menghapus memory atau mengubah saklar memory bot orang lain (dicek dengan 2 akun). Kunci rahasia tidak ada di file browser.
+- Screenshot 375px dan 1440px: `tests/e2e/screenshots/p3-*.png` (tidak di-commit).
+
+### Belum / catatan
+- Biaya model ringan (ekstraksi memory dan ringkasan) belum dicatat. Perkiraan sekitar USD 0,0002 per jawaban saat memory aktif. Dibahas di fase 6 (analytics).
+- Dua pesan yang dikirim sangat cepat berturut-turut bisa menjalankan dua ekstraksi bersamaan; kemungkinan kecil terjadi memory ganda. Bisa dihapus manual di tab Memory.
+- Memory dimasukkan seluruhnya (maks 50), belum dipilih berdasarkan relevansi. Cukup untuk pemakaian pribadi; ditinjau lagi jika memory per pengguna banyak.
+- Hapus percakapan belum ada (keputusan owner).
+
+### Keputusan penting
+- Memory mati secara bawaan; dinyalakan per bot (keputusan owner 2026-11-05).
+- Saat memory aktif, system prompt memberi tahu bot bahwa fitur ingatan aktif. Alasan: tanpa itu bot berkata "saya tidak bisa mengingat antar percakapan" padahal bisa (ditemukan saat verifikasi).
+- Ekstraksi hanya membaca pesan sejak penanda `memory_until`, jadi memory yang dihapus owner tidak muncul lagi dari pesan lama.
+- Output model ringan yang rusak tidak mengubah memory sama sekali.
+- Filter di tab Percakapan memakai tautan biasa (muat ulang halaman), bukan navigasi cepat Next.js. Alasan: klik filter cepat berturut-turut membuat navigasi tersangkut (ditemukan oleh test).
+- Migrasi fase 3 yang sudah diterapkan ke Supabase: `phase3_end_users_memories`.
 
 (diisi Claude Code di akhir tiap fase)

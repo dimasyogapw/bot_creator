@@ -19,8 +19,15 @@ export const KNOWLEDGE_RULES = `Kamu punya alat search_knowledge untuk mencari d
 /** Maksimal pesan mentah yang dikirim ke model. Pesan lebih lama diringkas (lib/bot/summary.ts). */
 export const HISTORY_LIMIT = 40;
 
+/** Aturan tambahan saat memory bot aktif (fase 3). Statis per bot, jadi ikut di-cache. */
+export const MEMORY_RULES = `Fitur ingatan aktif: fakta penting tentang pengguna (nama, preferensi, konteks) otomatis diingat untuk percakapan berikutnya. Jangan bilang kamu tidak bisa mengingat antar percakapan.
+- Data sensitif (password, PIN, OTP, nomor kartu, nomor rekening, NIK/KTP) TIDAK pernah disimpan. Jika pengguna membagikannya, sarankan dengan sopan agar tidak membagikan data seperti itu di chat.
+- Jika pengguna minta dilupakan, sampaikan bahwa permintaannya dicatat.`;
+
 export interface ContextOptions {
   knowledge?: boolean;
+  /** Memory bot aktif (aturan statis). */
+  memoryEnabled?: boolean;
   /** Memory end user (fase 3). Hanya diisi jika memory bot aktif. */
   memories?: { content: string }[];
   /** Ringkasan bagian awal percakapan yang sudah tidak dikirim mentah. */
@@ -47,9 +54,9 @@ export function buildDynamicContext(opts: ContextOptions): string {
   return parts.join("\n\n");
 }
 
-export function buildSystemPrompt(bot: Pick<Bot, "name" | "system_prompt">, opts: { knowledge?: boolean } = {}): string {
+export function buildSystemPrompt(bot: Pick<Bot, "name" | "system_prompt">, opts: { knowledge?: boolean; memoryEnabled?: boolean } = {}): string {
   const owner = bot.system_prompt.trim() || "Kamu adalah asisten yang ramah dan membantu.";
-  const rules = opts.knowledge ? `${BASE_RULES}\n\n${KNOWLEDGE_RULES}` : BASE_RULES;
+  const rules = [BASE_RULES, opts.knowledge && KNOWLEDGE_RULES, opts.memoryEnabled && MEMORY_RULES].filter(Boolean).join("\n\n");
   return `${rules}\n\nNama kamu: ${bot.name}\n\n<instruksi_pemilik>\n${owner}\n</instruksi_pemilik>`;
 }
 

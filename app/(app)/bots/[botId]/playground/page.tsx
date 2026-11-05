@@ -64,6 +64,7 @@ export default async function PlaygroundPage({
         temperature: Number(bot.temperature),
         max_tokens: bot.max_tokens,
         welcome_message: bot.welcome_message,
+        memory_enabled: bot.memory_enabled,
       }}
       models={models}
       conversations={convs ?? []}

@@ -26,6 +26,7 @@ interface PlaygroundBot {
   temperature: number;
   max_tokens: number;
   welcome_message: string | null;
+  memory_enabled: boolean;
 }
 
 interface ConvSummary {
@@ -343,6 +344,16 @@ function SettingsPanel({
         </Button>
         <Link href={`/bots/${bot.id}/persona`} className="text-sm text-primary underline-offset-4 hover:underline">
           Ubah instruksi dan persona
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-1 gap-1" data-testid="memory-status">
+        <h3 className="text-sm font-semibold">Memory</h3>
+        <p className="text-sm text-muted-foreground">
+          {bot.memory_enabled ? "Aktif: bot mengingat kamu sebagai \u201cOwner (playground)\u201d di semua percakapan." : "Mati: bot tidak mengingat apa pun antar percakapan."}
+        </p>
+        <Link href={`/bots/${bot.id}/memory`} className="text-sm text-primary underline-offset-4 hover:underline">
+          {bot.memory_enabled ? "Lihat memory" : "Nyalakan memory"}
         </Link>
       </div>
 

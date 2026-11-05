@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BASE_RULES, KNOWLEDGE_RULES, buildMessages, buildSystemPrompt, titleFromMessage, stripCitationMarks, HISTORY_LIMIT, buildDynamicContext } from "@/lib/bot/prompt";
+import { BASE_RULES, KNOWLEDGE_RULES, MEMORY_RULES, buildMessages, buildSystemPrompt, titleFromMessage, stripCitationMarks, HISTORY_LIMIT, buildDynamicContext } from "@/lib/bot/prompt";
 
 const bot = { name: "Tes", system_prompt: "Kamu barista.", model: "claude-sonnet-5-5" };
 const msg = (role: "user" | "assistant", text: string) => ({ role, content: { text } });
@@ -69,5 +69,10 @@ describe("prompt", () => {
   it("tanpa memory dan ringkasan: hanya satu blok", () => {
     const [sys] = buildMessages(bot, [msg("user", "halo")], { memories: [] });
     expect(sys.content as unknown[]).toHaveLength(1);
+  });
+
+  it("aturan memory hanya ada jika memory bot aktif", () => {
+    expect(buildSystemPrompt(bot)).not.toContain(MEMORY_RULES);
+    expect(buildSystemPrompt(bot, { memoryEnabled: true })).toContain(MEMORY_RULES);
   });
 });

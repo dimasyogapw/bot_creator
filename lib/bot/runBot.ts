@@ -216,7 +216,7 @@ export async function* runBot(p: RunBotParams): AsyncGenerator<BotEvent> {
     console.error("[runBot] gagal cek knowledge", e);
   }
   const tools = knowledgeOn ? [SEARCH_KNOWLEDGE_TOOL] : undefined;
-  const messages = buildMessages(bot, history, { knowledge: knowledgeOn, memories, summary });
+  const messages = buildMessages(bot, history, { knowledge: knowledgeOn, memoryEnabled: bot.memory_enabled && !!endUserId, memories, summary });
 
   // 8. Kirim ke model + stream jawaban, dengan loop tool maksimal MAX_TOOL_ITERATIONS.
   const t0 = Date.now();
