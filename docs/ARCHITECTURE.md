@@ -43,7 +43,9 @@ Jika poin 3 atau 4 gagal, berhenti dan laporkan ke owner sebelum lanjut.
 ## Model data (awal, boleh diperbaiki saat plan)
 ```
 bots            id, name, slug, avatar_url, system_prompt, model, temperature,
-                max_tokens, welcome_message, is_public, memory_enabled, settings jsonb,
+                max_tokens, welcome_message, is_public, memory_enabled, daily_cost_limit_usd,
+                daily_message_limit, per_minute_limit, limit_message, widget jsonb,
+                allowed_domains text[], settings jsonb,
                 created_at, updated_at
 knowledge_sources id, bot_id, type (file|url|text), title, status
                 (uploading|pending|processing|ready|error), error_message, storage_path,
@@ -60,6 +62,7 @@ skills          id, bot_id, type (search_knowledge|http_webhook|current_datetime
 handoff_requests id, bot_id, conversation_id, end_user_id, reason, summary,
                 status (open|resolved), created_at, resolved_at
 leads           id, bot_id, conversation_id, end_user_id, data jsonb, created_at
+rate_limits     key, bucket, count   (hanya server)
 conversations   id, bot_id, end_user_id, channel, title, summary, summary_until,
                 memory_until, created_at, updated_at
 messages        id, conversation_id, role, content jsonb, tokens_in, tokens_out,
@@ -84,5 +87,7 @@ eval_runs       id, bot_id, created_at, pass_count, total, results jsonb
 - Semua HTTP keluar (knowledge URL, webhook, baca halaman, pencarian) lewat `lib/net/safe-http.ts`: tolak IP privat/lokal (dicek saat koneksi), port standar, batas ukuran dan waktu.
 - Header rahasia webhook disimpan di Supabase Vault; fungsi pembacanya hanya bisa dipanggil server (secret key) setelah kepemilikan skill dibuktikan lewat RLS.
 - Registry skill: `lib/skills/defs/*` (satu file per tipe: skema konfigurasi Zod, definisi tool, eksekusi), didaftarkan di `lib/skills/registry.ts`.
-- Rate limit endpoint publik (contoh: 20 pesan/menit per IP, batas harian per bot).
-- Batas biaya harian per bot; jika terlewati, bot membalas pesan fallback.
+- Rate limit endpoint publik (bawaan 20 pesan/menit per IP dan per pengunjung, 300 pesan/hari per bot), disimpan di tabel `rate_limits` lewat fungsi atomik khusus server.
+- Batas biaya harian per bot (bawaan USD 1, dihitung dari `messages.cost_usd` channel publik hari ini WIB); jika terlewati, bot membalas pesan fallback tanpa memanggil model.
+- Channel publik (`/c/<slug>`, `/embed/<slug>`, `/api/public/*`, `/widget.js`) tanpa login: server memakai secret key dengan pengecekan eksplisit (bot `is_public`, percakapan milik bot dan pengunjung itu). Event dan riwayat untuk pengunjung disaring (`lib/publish/public.ts`): hanya teks, label skill, sitasi tanpa id internal, status.
+- Widget hanya bisa di-embed di domain yang diizinkan (header CSP `frame-ancestors` dari `bots.allowed_domains`, dipasang di middleware).

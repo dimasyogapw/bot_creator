@@ -13,7 +13,7 @@ import { handoffSkill } from "@/lib/skills/defs/handoff";
 import { webhookToolName } from "@/lib/skills/registry";
 import { wrapData } from "@/lib/skills/types";
 import { csvCell } from "@/lib/skills/csv";
-import { NetError, assertAllowedUrl } from "@/lib/net/safe-http";
+import { assertAllowedUrl } from "@/lib/net/safe-http";
 import { supportsVision } from "@/lib/llm/capabilities";
 
 const baseCfg = {
