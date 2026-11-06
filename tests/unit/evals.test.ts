@@ -199,3 +199,29 @@ describe("pencatat biaya llm_usage", () => {
     spy.mockRestore();
   });
 });
+
+describe("juri: percobaan ulang", () => {
+  it("keluaran rusak dicoba ulang sekali; jika tetap rusak jadi error (bukan gagal)", async () => {
+    vi.resetModules();
+    const create = vi.fn();
+    vi.doMock("@/lib/llm/provider", () => ({
+      chat: (...a: unknown[]) => create(...a),
+      getLlmConfig: () => ({ LLM_JUDGE_MODEL: "juri-uji" }),
+    }));
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { judgeAnswer } = await import("@/lib/evals/judge");
+    const input = { systemPrompt: "s", setup: [], newConversation: false, input: "q", expected: "e", answer: "a", tools: [], citationTitles: [] };
+
+    create.mockResolvedValueOnce({ choices: [{ message: { content: "maaf" } }] }).mockResolvedValueOnce({ choices: [{ message: { content: '{"verdict":"fail","reason":"Mengarang angka."}' } }] });
+    expect(await judgeAnswer(input)).toEqual({ ok: true, verdict: { verdict: "fail", reason: "Mengarang angka." } });
+    expect(create).toHaveBeenCalledTimes(2);
+    expect(create.mock.calls[0][0]).toMatchObject({ model: "juri-uji", temperature: 0 });
+
+    create.mockReset().mockResolvedValue({ choices: [{ message: { content: "bukan json" } }] });
+    const bad = await judgeAnswer(input);
+    expect(bad.ok).toBe(false);
+    expect(create).toHaveBeenCalledTimes(2);
+    spy.mockRestore();
+    vi.doUnmock("@/lib/llm/provider");
+  });
+});

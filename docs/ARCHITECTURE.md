@@ -52,7 +52,7 @@ knowledge_sources id, bot_id, type (file|url|text), title, status
                 url, mime, size_bytes, chunk_count, progress, created_at, updated_at
 knowledge_chunks id, source_id, bot_id, chunk_index, content, embedding vector(1536),
                 fts tsvector, metadata jsonb (pages), token_count
-end_users       id, bot_id, channel (playground|web|widget|telegram|whatsapp),
+end_users       id, bot_id, channel (playground|web|widget|telegram|whatsapp|eval),
                 external_id, display_name, created_at, last_seen_at
 memories        id, bot_id, end_user_id, content, importance, source_conversation_id,
                 created_at, updated_at
@@ -63,12 +63,21 @@ handoff_requests id, bot_id, conversation_id, end_user_id, reason, summary,
                 status (open|resolved), created_at, resolved_at
 leads           id, bot_id, conversation_id, end_user_id, data jsonb, created_at
 rate_limits     key, bucket, count   (hanya server)
-conversations   id, bot_id, end_user_id, channel, title, summary, summary_until,
+conversations   id, bot_id, end_user_id, channel (termasuk eval), title, summary, summary_until,
                 memory_until, created_at, updated_at
 messages        id, conversation_id, role, content jsonb, tokens_in, tokens_out,
                 cost_usd, latency_ms, feedback (-1|0|1), created_at
-eval_cases      id, bot_id, input, expected_behavior, tags
-eval_runs       id, bot_id, created_at, pass_count, total, results jsonb
+eval_cases      id, bot_id, input, expected_behavior, tags, setup jsonb (pesan pendahuluan),
+                new_conversation, source_conversation_id
+eval_runs       id, bot_id, status (running|done), source (app|cli), judge_model,
+                bot_snapshot jsonb, total, pass/fail/error/skipped_count, estimated_cost_usd,
+                cost_bot_usd, cost_judge_usd, cost_background_usd, cost_usd, tokens_in/out
+eval_results    id, run_id, case_id, position, case_input/expected (salinan), status
+                (pending|running|pass|fail|error|skipped), reason, answer, tools, conversation_id,
+                cost_bot/judge/background_usd, tokens, latency_ms
+llm_usage       id, bot_id, conversation_id, eval_run_id, eval_result_id, purpose
+                (memory|summary|embedding|persona|web_search_test|eval_judge|eval_suggest),
+                model, tokens, cost_usd   (panggilan model di luar jawaban bot)
 ```
 
 ## Alur satu pesan (runBot)
@@ -80,6 +89,14 @@ eval_runs       id, bot_id, created_at, pass_count, total, results jsonb
 6. Stream jawaban ke channel.
 7. Simpan pesan, token, biaya, latensi.
 8. Di background: ekstrak memory baru dengan model ringan.
+
+## Eval dan analitik (fase 6)
+- Eval = ujian otomatis untuk bot: test case (pertanyaan + perilaku yang diharapkan) dijawab bot lewat `runBot` (channel `eval`), lalu dinilai juri (model `LLM_JUDGE_MODEL`, bawaan `claude-sonnet-5-5`, suhu 0) dengan rubrik lulus/gagal + alasan. Mesin di `lib/evals/engine.ts`, juri di `lib/evals/judge.ts`.
+- Satu run = banyak kasus; satu langkah (`POST /api/bots/<id>/evals/runs/<run>/step`) = satu kasus, supaya aman terhadap batas waktu Vercel. Klaim kasus atomik, jadi aman dipanggil bersamaan (CLI memakai 2 pekerja). Kasus yang macet lebih dari 3 menit boleh diambil ulang.
+- Keamanan saat eval: skill penyimpan data (lead, handoff) berjalan dalam mode tes, webhook POST tidak dikirim, webhook GET dipanggil sungguhan. Kasus memory dilewati jika memory bot mati. Memory pengguna uji dihapus setelah tiap kasus. Jawaban bot dibungkus sebagai data untuk juri.
+- Setiap run menyimpan salinan pengaturan bot (`bot_snapshot`) untuk perbandingan antar run. Run tidak bisa dihapus (riwayat biaya tetap utuh).
+- Biaya: jawaban bot tetap di `messages.cost_usd`; semua panggilan model lain dicatat di `llm_usage` lewat `lib/llm/usage.ts` (gagal mencatat tidak pernah menghentikan pekerjaan utama). Biaya run = jumlah biaya bot (messages) + juri + latar belakang (llm_usage). Batas biaya harian fase 5 ikut menghitung biaya latar belakang channel publik.
+- Analitik per bot per hari (WIB) lewat fungsi SQL `bot_analytics` (security invoker). Channel `eval` dihitung terpisah sebagai "biaya eval" dan tidak ikut statistik chat.
 
 ## Keamanan
 - Konten knowledge dibungkus tag `<document>` dan system prompt menegaskan bahwa isinya data, bukan instruksi.
