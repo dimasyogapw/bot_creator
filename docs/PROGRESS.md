@@ -8,7 +8,7 @@
 | 3 Percakapan + memory | **selesai** (PR #5 di-merge owner 2026-11-05) | DoD 1 sampai 6 lulus di Production |
 | 4 Skills | **selesai** (PR #7 di-merge owner 2026-11-05) | DoD 1 sampai 9 lulus; Production 27 lulus |
 | 5 Publikasi | **selesai** (PR #8, #9, #10 di-merge owner 2026-11-05) | DoD 1 sampai 8 lulus di Production |
-| 6 Evals + analytics | belum | |
+| 6 Evals + analytics | **selesai, menunggu review owner** (PR ke main) | DoD 1 sampai 4 lulus di test otomatis lokal |
 | 7 Telegram / WhatsApp | belum | |
 
 ## Keputusan penting
@@ -245,7 +245,55 @@ Keputusan: default bot `claude-haiku-5-5` (murah, tercepat, prompt caching jalan
 - Domain widget boleh ditulis dengan `http://` untuk situs yang belum https (ditemukan saat menyusun test: aturan tanpa skema hanya cocok dengan https di Production).
 - Migrasi fase 5 yang sudah diterapkan ke Supabase: `phase5_publish`.
 
-## Catatan untuk sesi berikutnya (ditulis 2026-11-05)
+## Fase 6: Evals + analytics (2026-11-06)
+
+### Selesai
+- **Tab Evals**: test case (tambah, edit, hapus dengan konfirmasi, impor JSONL dengan laporan nomor baris, tombol "Pakai 6 kasus contoh", maks 50 per bot). Kasus boleh punya pesan pendahuluan dan "percakapan baru" (untuk tes memory antar percakapan).
+- **Jalankan**: dialog konfirmasi dengan perkiraan biaya, lalu berjalan satu kasus per langkah (aman terhadap batas waktu Vercel), progres per kasus, bisa dilanjutkan jika halaman ditutup. Dua run tidak bisa berjalan bersamaan untuk satu bot.
+- **Juri**: `claude-sonnet-5-5` (env `LLM_JUDGE_MODEL`), suhu 0, rubrik lulus/gagal + alasan, jawaban bot diperlakukan sebagai data. Keluaran juri rusak dicoba ulang sekali, lalu ditandai "Error" (bukan "Gagal").
+- **Perbandingan run**: tiap run menyimpan salinan pengaturan bot. Halaman hasil menunjukkan skor naik/turun, pengaturan yang berubah (mis. system prompt), dan kasus yang membaik/memburuk.
+- **Tagihan per run (permintaan owner)**: biaya jawaban bot, juri, dan latar belakang per kasus dan per run; riwayat run dengan kolom biaya; kartu "Pengeluaran eval" (30 hari dan seluruhnya); perkiraan biaya sebelum jalan.
+- **Buat test case dari percakapan**: tombol di tiap jawaban bot di tab Percakapan (disorot jika jempol bawah). Model ringan menyarankan "perilaku yang diharapkan"; owner mengedit dan menekan Simpan (tidak pernah tersimpan otomatis).
+- **CLI**: `npm run eval -- --bot <slug> [--concurrency 2] [--min-score 90]` memakai mesin yang sama; hanya dari Claude Code web.
+- **Tab Analitik**: 7/30/90 hari per hari (WIB): percakapan, jawaban, token, biaya jawaban, biaya latar belakang, biaya eval, biaya rata-rata per percakapan, latensi, token pertama, rasio jempol, skor eval terakhir, dua grafik batang.
+- **Biaya lengkap**: tabel `llm_usage` mencatat memory, ringkasan, embedding pencarian, persona, tes pencarian, juri, dan saran test case. Batas biaya harian fase 5 kini ikut menghitung biaya latar belakang channel publik.
+- Keamanan eval: skill simpan data dan alihkan ke manusia berjalan dalam mode tes; webhook POST tidak dikirim ("dilewati (mode eval)"), webhook GET dipanggil sungguhan; kasus memory dilewati jika memory bot mati; memory pengguna uji dihapus setelah tiap kasus; percakapan eval berchannel `eval` dan tidak muncul di tab Percakapan, Memory, atau statistik chat.
+
+### Hasil verifikasi
+- Lint, typecheck bersih. Unit test 153 lulus. Build berhasil.
+- Playwright lokal, seluruh fase 1 sampai 6: 37 lulus, 2 dilewati (tambah URL dan baca halaman web butuh internet dari server aplikasi). Satu test fase 1 (streaming) gagal sekali di putaran penuh (teks jawaban tidak bertambah selama 10 detik), lulus 9 dari 9 saat diulang sendirian; tidak terulang. Dugaan: gangguan sesaat provider [Likely], tidak terbukti.
+  1. **DoD 1**: 6 kasus contoh berjalan, tiap kasus menampilkan lulus/gagal, alasan juri, jawaban, skill yang dipakai, biaya. Tidak ada kasus Error. Webhook tiruan benar-benar dipanggil untuk kasus "cek pesanan".
+  2. **DoD 2**: system prompt diganti jadi "jawab hanya PISANG": skor turun dari 83,3% ke 50%, ditandai "Memburuk" pada kasus yang berubah, dan "Instruksi bot (system prompt)" tercatat sebagai pengaturan yang berbeda.
+  3. **DoD 3**: biaya jawaban, biaya latar belakang, dan biaya eval di Analitik sama dengan jumlah di database (messages dan llm_usage), di rentang 30 dan 7 hari.
+  4. **DoD 4**: total run = biaya bot + juri + latar belakang = jumlah biaya per kasus = jumlah data sumber (messages di percakapan eval + llm_usage), selisih di bawah 0,00001 USD. Angka di layar sama dengan database.
+  - Impor JSONL yang salah ditolak seluruhnya dengan nomor baris; kasus memory dilewati (gratis) saat memory mati; tombol dari percakapan menyimpan kasus dengan sumber percakapan dan biaya saran tercatat.
+- Keamanan: advisor security Supabase bersih (hanya temuan lama). Tanpa login ditolak di route eval dan di keempat tabel baru; owner lain tidak bisa membaca/menambah data eval atau llm_usage dan tidak melihat analitik bot orang lain (dicek dengan 2 akun). Fungsi `bot_analytics` dan `recompute_eval_run` tertutup untuk anon. Fungsi batas harian fase 5 tetap hanya untuk server.
+- Screenshot 375px dan 1440px: `tests/e2e/screenshots/p6-*.png` (tidak di-commit).
+
+### Biaya nyata (penting untuk dipantau)
+- Satu run 6 kasus contoh: sekitar **USD 0,03** (jawaban bot 0,004, juri 0,026, latar belakang 0,001). **Juri Sonnet sekitar 85% dari biaya**, sekitar USD 0,0044 per kasus. Perkiraan awal di rencana (USD 0,02) terlalu rendah. 50 kasus sekitar USD 0,25 per run. Jika terasa mahal, ganti `LLM_JUDGE_MODEL` ke Haiku (sekitar USD 0,005 per run 6 kasus) dengan risiko penilaian lebih longgar.
+
+### Belum / catatan
+- **Temuan penting**: SumoPod hanya melaporkan `cost` pada respons stream (jawaban bot). Panggilan non-stream (juri, memory, ringkasan, persona) tidak membawa biaya, dan `model_prices` sebelumnya kosong, jadi biaya latar belakang akan tercatat 0. Diperbaiki: tabel `model_prices` diisi (migrasi `seed_model_prices`) dengan harga hasil kalibrasi dari angka `cost` SumoPod: Haiku 5.5 USD 0,125 masuk / 0,50 keluar per juta token, Sonnet 5.5 USD 2,50 / 10,00 (selisih prediksi di bawah 0,05%). **Jika SumoPod mengubah harga atau bot memakai model lain, baris ini harus diperbarui**; model tanpa harga dicatat biaya 0. Aturan biaya diubah: angka `cost` provider didahulukan, tabel harga hanya cadangan.
+- Biaya **embedding** (pencarian dan proses knowledge) belum dihitung: SumoPod tidak melaporkan biayanya dan harga embedding belum diisi. Pemakaiannya tercatat (token) tapi biayanya 0. Nilainya sangat kecil untuk pencarian, tapi file besar bisa mencapai sekitar USD 0,1.
+- Biaya latar belakang sebelum fase 6 tidak bisa direkonstruksi (dashboard memberi keterangan "tercatat sejak").
+- Biaya Tavily tidak dicatat (skill mati bawaan, tanpa API key).
+- Run eval tidak bisa dihapus (agar riwayat pengeluaran utuh). Percakapan eval menumpuk di database (kecil).
+- Juri berbasis model tidak selalu konsisten; dengan 6 kasus, satu kasus berubah menggeser skor sekitar 17 poin. Halaman hasil menunjukkan kasus yang berubah dan mengingatkan untuk menjalankan ulang. Kadang juri meluluskan jawaban yang menurut owner kurang bagus (contoh: jawaban "PISANG" dianggap menolak dengan sopan karena tidak membocorkan prompt); tulis "perilaku yang diharapkan" serinci mungkin.
+- Webhook POST tidak diuji saat eval (kasus yang bergantung pada POST tidak bisa dinilai penuh).
+- Persentase jawaban "tidak tahu" (PRD bagian 8) ditunda (keputusan owner).
+- Eval tidak terjadwal otomatis (hanya saat ditekan atau lewat CLI).
+- Satu langkah eval dibatasi 60 detik di Vercel. Kasus dengan banyak pesan pendahuluan dan alat lambat bisa melewati batas; kasus yang macet bisa dilanjutkan (diambil ulang setelah 3 menit).
+
+### Keputusan penting
+- Keputusan owner (2026-11-06): juri Sonnet; skill berefek samping dalam mode aman; biaya latar belakang ikut batas harian; persen "tidak tahu" ditunda; info tagihan per run wajib tampil di aplikasi.
+- Channel baru `eval` (migrasi mengganti aturan channel di `conversations` dan `end_users`).
+- Hasil per kasus disimpan di tabel `eval_results` (bukan JSON di `eval_runs`) agar langkah per kasus aman dijalankan bersamaan.
+- Skor = lulus / (total - dilewati). Error dihitung belum lulus dan ditandai terpisah.
+- Migrasi fase 6 yang sudah diterapkan ke Supabase: `phase6_evals_analytics`, `seed_model_prices`.
+- Bug ditemukan test dan diperbaiki: biaya non-stream tercatat 0 (lihat Temuan penting); balapan di test biaya latar belakang (ekstraksi memory kedua); label tanggal grafik terlalu kecil di HP.
+
+## Catatan untuk sesi berikutnya (ditulis 2026-11-05, diperbarui 2026-11-06)
 - **Lingkungan**: semua eksekusi (npm, test, build, Playwright) di Claude Code web. Laptop owner tidak bisa menjalankan aplikasi. Owner tidak membaca kode; beri langkah bernomor untuk tindakan manual.
 - **Alamat**: Production `https://bot-creator-three.vercel.app`. Preview per branch dilindungi login Vercel (pengunjung tanpa akun Vercel tidak bisa membuka). Tes sebagai pengunjung harus di Production.
 - **Supabase**: project `Bot-Creator`, id `dyawcgbeqqsyhoyatrhz` (region Singapura). Migrasi diterapkan lewat connector Supabase (`apply_migration`); statement yang menghapus sesuatu (drop/delete) memunculkan dialog konfirmasi untuk owner, jadi hindari `drop` jika bisa (pakai `alter` / `create or replace`).
@@ -254,7 +302,8 @@ Keputusan: default bot `claude-haiku-5-5` (murah, tercepat, prompt caching jalan
 - **Test ke Production**: `E2E_BASE_URL=https://bot-creator-three.vercel.app npx playwright test` (tanpa server lokal). Test webhook otomatis dilewati di mode ini; test tambah URL / baca halaman web hanya jalan di mode ini (Claude Code web memblokir situs luar).
 - **Akun test**: dibuat otomatis per run (`tests/e2e/global-setup.ts`), dihapus di teardown beserta file storage-nya.
 - **Vitest 5**: error yang dilempar dari dalam fungsi `vi.fn()` dilaporkan sebagai kegagalan test walau ditangkap kode. Untuk menguji jalur error jaringan, pakai panggilan sungguhan ke domain `.invalid` (lihat `tests/unit/skills-net.test.ts`).
-- **Biaya yang belum tercatat** (untuk fase 6): ekstraksi memory, ringkasan percakapan, embedding knowledge, asisten persona, tombol "Tes skill". Hanya jawaban bot yang tercatat di `messages.cost_usd`, dan batas biaya harian fase 5 hanya menghitung itu.
-- **Bahan fase 6**: jempol bawah tersimpan di `messages.feedback`, tab Percakapan sudah punya filter "Ada jempol bawah" (titik awal "Buat test case dari percakapan ini"). Contoh eval di `evals/cases.example.jsonl`.
+- **Biaya (diperbarui fase 6)**: jawaban bot di `messages.cost_usd`; semua panggilan model lain di `llm_usage` (memory, ringkasan, embedding pencarian, persona, tes pencarian, juri, saran test case). Biaya non-stream dihitung dari `model_prices` (hanya Haiku 5.5 dan Sonnet 5.5 terisi, lihat bagian Fase 6). Embedding belum dihargai. Batas biaya harian fase 5 kini menghitung jawaban + biaya latar belakang channel publik.
+- **Eval**: `npm run eval -- --bot <slug>` atau tab Evals. Percakapan eval berchannel `eval`. Test fase 6 memakai model sungguhan (sekitar USD 0,06 per putaran penuh).
+- **Test lokal**: putaran penuh fase 1 sampai 6 sekitar 19 menit.
 
 (diisi Claude Code di akhir tiap fase)
