@@ -81,7 +81,7 @@ async function runModel(model: string) {
   const queue = CASES.flatMap((cs) => Array.from({ length: REPS }, () => cs));
   const results: { id: string; r: Run }[] = [];
   let i = 0;
-  await Promise.all(Array.from({ length: 4 }, async () => {
+  await Promise.all(Array.from({ length: Number(process.env.CONC ?? 2) }, async () => {
     while (i < queue.length) {
       const cs = queue[i++];
       results.push({ id: cs.id, r: await judgeOnce(model, cs.j) });
