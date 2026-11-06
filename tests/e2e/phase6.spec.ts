@@ -270,11 +270,10 @@ test.describe.serial("Fase 6: evals + analytics", () => {
     await ask(page, "Nama saya Budi, toko buka jam berapa?");
     await ask(page, "Terima kasih, sampai jumpa!");
     chatConvId = new URL(page.url()).searchParams.get("c")!;
-    // Tunggu biaya latar belakang (ekstraksi memory) tercatat
+    // Tunggu biaya latar belakang tercatat: tiap jawaban memicu satu ekstraksi memory (2 jawaban = 2 catatan)
     await expect
-      .poll(async () => (await admin().from("llm_usage").select("id", { count: "exact", head: true }).eq("bot_id", botId).is("eval_run_id", null).eq("purpose", "memory")).count, { timeout: 90_000 })
-      .toBeGreaterThanOrEqual(1);
-    await page.waitForTimeout(3000); // ekstraksi kedua bisa menyusul
+      .poll(async () => (await admin().from("llm_usage").select("id", { count: "exact", head: true }).eq("bot_id", botId).is("eval_run_id", null).eq("purpose", "memory")).count, { timeout: 120_000 })
+      .toBe(2);
 
     const db = admin();
     const { data: chat } = await db
