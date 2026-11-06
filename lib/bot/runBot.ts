@@ -9,6 +9,7 @@ import { maybeSummarize } from "./summary";
 import { isServerToolCall, supportsVision } from "@/lib/llm/capabilities";
 import { buildMessages, titleFromMessage, HISTORY_LIMIT } from "./prompt";
 import { computeCostUsd, normalizeUsage, type ProviderUsage } from "./pricing";
+import type { UsageScope } from "@/lib/llm/usage";
 
 /**
  * Fungsi inti chat. SEMUA channel (playground, publik, widget, Telegram, WhatsApp)
@@ -43,6 +44,11 @@ export interface RunBotParams {
    */
   defer?: (task: () => Promise<void>) => void;
   signal?: AbortSignal;
+  /**
+   * Hanya untuk eval: menandai biaya latar belakang (memory, ringkasan, embedding) milik hasil eval ini,
+   * dan menjalankan skill berefek samping dalam mode aman (tidak menyimpan lead/handoff, tidak mengirim POST).
+   */
+  evalContext?: { runId: string; resultId: string };
 }
 
 export const PLAYGROUND_END_USER = { externalId: "owner", displayName: "Owner (playground)" };
@@ -231,7 +237,23 @@ export async function* runBot(p: RunBotParams): AsyncGenerator<BotEvent> {
   const citations: Citation[] = [];
   const searches: string[] = [];
   const toolLog: ToolCallRecord[] = [];
-  const skillCtx = { db, bot, model: bot.model, conversationId, endUserId, citations };
+  const usageScope: UsageScope = {
+    db,
+    botId: bot.id,
+    conversationId,
+    evalRunId: p.evalContext?.runId ?? null,
+    evalResultId: p.evalContext?.resultId ?? null,
+  };
+  const skillCtx = {
+    db,
+    bot,
+    model: bot.model,
+    conversationId,
+    endUserId,
+    citations,
+    usage: usageScope,
+    ...(p.evalContext ? { dryRun: true, skipWebhookPost: true } : {}),
+  };
 
   try {
     for (let iter = 0; iter <= MAX_TOOL_ITERATIONS; iter++) {
@@ -363,7 +385,7 @@ export async function* runBot(p: RunBotParams): AsyncGenerator<BotEvent> {
       const euId = endUserId;
       p.defer(async () => {
         try {
-          await extractMemories({ db, botId: bot.id, endUserId: euId, conversationId: convId });
+          await extractMemories({ db, botId: bot.id, endUserId: euId, conversationId: convId, usage: usageScope });
         } catch (e) {
           console.error("[runBot] ekstraksi memory gagal", e);
         }
@@ -371,7 +393,7 @@ export async function* runBot(p: RunBotParams): AsyncGenerator<BotEvent> {
     }
     p.defer(async () => {
       try {
-        await maybeSummarize(db, convId);
+        await maybeSummarize(db, convId, usageScope);
       } catch (e) {
         console.error("[runBot] ringkasan gagal", e);
       }

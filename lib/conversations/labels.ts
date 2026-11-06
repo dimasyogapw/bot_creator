@@ -6,9 +6,11 @@ export const CHANNEL_LABELS: Record<Channel, string> = {
   widget: "Widget",
   telegram: "Telegram",
   whatsapp: "WhatsApp",
+  eval: "Eval",
 };
 
-export const CHANNELS = Object.keys(CHANNEL_LABELS) as Channel[];
+/** Channel yang bisa difilter di tab Percakapan (percakapan eval disembunyikan). */
+export const CHANNELS = (Object.keys(CHANNEL_LABELS) as Channel[]).filter((c) => c !== "eval");
 
 const fmt = new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta" });
 export function formatDateTime(iso: string) {

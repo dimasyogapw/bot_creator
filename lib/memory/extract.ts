@@ -2,6 +2,8 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { chat, getLlmConfig } from "@/lib/llm/provider";
 import { extractJsonObject } from "@/lib/llm/json";
+import { recordLlmUsage, type UsageScope } from "@/lib/llm/usage";
+import type { ProviderUsage } from "@/lib/bot/pricing";
 import type { Memory } from "@/lib/db/types";
 import { MAX_MEMORIES_PER_USER, memoryOpsSchema, type MemoryOp } from "./schema";
 import { isSensitive } from "./sensitive";
@@ -77,9 +79,11 @@ export interface ExtractParams {
   botId: string;
   endUserId: string;
   conversationId: string;
+  /** Tempat mencatat biaya (opsional). */
+  usage?: UsageScope;
 }
 
-export async function extractMemories({ db, botId, endUserId, conversationId }: ExtractParams): Promise<{ applied: number }> {
+export async function extractMemories({ db, botId, endUserId, conversationId, usage }: ExtractParams): Promise<{ applied: number }> {
   const { data: conv, error: convErr } = await db.from("conversations").select("memory_until").eq("id", conversationId).maybeSingle();
   if (convErr) throw convErr;
   if (!conv) return { applied: 0 };
@@ -107,12 +111,14 @@ export async function extractMemories({ db, botId, endUserId, conversationId }: 
     .limit(MAX_MEMORIES_PER_USER);
   if (memErr) throw memErr;
 
+  const model = getLlmConfig().LLM_LIGHT_MODEL;
   const res = await chat({
-    model: getLlmConfig().LLM_LIGHT_MODEL,
+    model,
     messages: buildMemoryRequest(existing ?? [], msgs.map((m) => ({ role: m.role, text: m.content?.text ?? "" }))),
     temperature: 0,
     maxTokens: 2048,
   });
+  await recordLlmUsage(usage, "memory", model, res.usage as ProviderUsage | undefined);
   // Output rusak: lempar error, memory tidak diubah, memory_until tidak maju (dicoba lagi di giliran berikutnya).
   const ops = sanitizeOps(parseMemoryOps(res.choices[0]?.message?.content ?? ""), existing ?? []);
 

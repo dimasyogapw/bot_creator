@@ -1,5 +1,7 @@
 import "server-only";
 import { chat, getLlmConfig } from "@/lib/llm/provider";
+import { recordLlmUsage, type UsageScope } from "@/lib/llm/usage";
+import type { ProviderUsage } from "./pricing";
 import { personaResultSchema, type PersonaAnswers, type PersonaResult } from "@/lib/bots/schema";
 
 const TONE: Record<string, string> = {
@@ -41,12 +43,14 @@ export function parsePersonaJson(raw: string): PersonaResult {
 }
 
 /** Susun draf persona memakai model ringan. Hasil hanya draf, tidak disimpan. */
-export async function generatePersona(answers: Required<PersonaAnswers>): Promise<PersonaResult> {
+export async function generatePersona(answers: Required<PersonaAnswers>, usage?: UsageScope): Promise<PersonaResult> {
+  const model = getLlmConfig().LLM_LIGHT_MODEL;
   const res = await chat({
-    model: getLlmConfig().LLM_LIGHT_MODEL,
+    model,
     messages: buildPersonaRequest(answers),
     temperature: 0.5,
     maxTokens: 3000,
   });
+  await recordLlmUsage(usage, "persona", model, res.usage as ProviderUsage | undefined);
   return parsePersonaJson(res.choices[0]?.message?.content ?? "");
 }

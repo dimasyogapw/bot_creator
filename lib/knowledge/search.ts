@@ -1,6 +1,8 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { embed } from "@/lib/llm/provider";
+import { embed, getLlmConfig } from "@/lib/llm/provider";
+import { recordLlmUsage, type UsageScope } from "@/lib/llm/usage";
+import type { ProviderUsage } from "@/lib/bot/pricing";
 
 export interface KnowledgeHit {
   id: string;
@@ -26,8 +28,9 @@ export async function hasReadyKnowledge(db: SupabaseClient, botId: string): Prom
 }
 
 /** Pencarian hybrid (vektor + full-text, RRF) lewat fungsi SQL match_knowledge. */
-export async function searchKnowledge(db: SupabaseClient, botId: string, query: string, k = SEARCH_TOP_K): Promise<KnowledgeHit[]> {
+export async function searchKnowledge(db: SupabaseClient, botId: string, query: string, k = SEARCH_TOP_K, usage?: UsageScope): Promise<KnowledgeHit[]> {
   const res = await embed([query]);
+  await recordLlmUsage(usage, "embedding", getLlmConfig().EMBEDDING_MODEL ?? "embedding", res.usage as ProviderUsage | undefined);
   const vector = res.data[0]?.embedding;
   if (!vector) throw new Error("embedding kueri kosong");
   const { data, error } = await db.rpc("match_knowledge", {

@@ -13,6 +13,8 @@ const envSchema = z.object({
   LLM_API_KEY: z.string().min(1, "LLM_API_KEY belum diisi"),
   LLM_DEFAULT_MODEL: z.string().min(1, "LLM_DEFAULT_MODEL belum diisi"),
   LLM_LIGHT_MODEL: z.string().min(1, "LLM_LIGHT_MODEL belum diisi"),
+  /** Model juri eval. Bawaan Sonnet: juri sebaiknya setara atau lebih pintar dari bot yang dinilai. */
+  LLM_JUDGE_MODEL: z.string().optional().transform((v) => v || "claude-sonnet-5-5"),
   EMBEDDING_MODEL: z.string().optional().transform((v) => v || undefined),
   EMBEDDING_DIMENSIONS: z.coerce.number().int().positive().optional().or(z.literal("").transform(() => undefined)),
 });
