@@ -9,6 +9,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "check:provider": "tsx --conditions=react-server scripts/check-provider.ts",
+    "eval": "tsx --conditions=react-server scripts/eval.ts",
     "test": "vitest run",
     "test:e2e": "playwright test"
   },

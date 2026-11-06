@@ -66,12 +66,14 @@ export function RunRunner({ botId, runId, initialDone, total }: { botId: string;
     }
   }, [botId, runId, router]);
 
+  const stop = useCallback(() => {
+    loopId.current++; // hentikan loop yang sedang jalan
+  }, []);
+
   useEffect(() => {
     void loop();
-    return () => {
-      loopId.current++; // hentikan loop saat halaman ditinggalkan
-    };
-  }, [loop]);
+    return stop; // hentikan loop saat halaman ditinggalkan
+  }, [loop, stop]);
 
   const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
   return (
