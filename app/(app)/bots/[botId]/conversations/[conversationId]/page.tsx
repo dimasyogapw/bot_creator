@@ -86,7 +86,7 @@ export default async function ConversationDetailPage({ params }: { params: Promi
         )}
         <HandoffBanner botId={bot.id} items={handoffs ?? []} />
       </header>
-      <Transcript bot={{ name: bot.name, avatar_url: bot.avatar_url }} messages={messages} imageUrls={imageUrls} />
+      <Transcript bot={{ name: bot.name, avatar_url: bot.avatar_url }} messages={messages} imageUrls={imageUrls} evalSource={{ botId: bot.id, conversationId: conv.id }} />
     </main>
   );
 }
