@@ -74,7 +74,7 @@ Kamu bisa memakai salah satu atau keduanya. Keduanya membaca repo GitHub yang sa
 | `LLM_API_KEY` | key SumoPod `sk-...` | **Ya** |
 | `LLM_DEFAULT_MODEL` | nama model Claude Sonnet dari SumoPod | Tidak |
 | `LLM_LIGHT_MODEL` | nama model Claude Haiku dari SumoPod | Tidak |
-| `LLM_JUDGE_MODEL` | model juri eval (opsional; bawaan `claude-sonnet-5-5`) | Tidak |
+| `LLM_JUDGE_MODEL` | model juri eval (opsional; bawaan `claude-haiku-5-5`, bisa diganti `claude-sonnet-5-5` untuk penilaian lebih ketat tapi sekitar 13 kali lebih mahal) | Tidak |
 | `EMBEDDING_MODEL` | diisi setelah tes fase 1 | Tidak |
 | `EMBEDDING_DIMENSIONS` | diisi setelah tes fase 1 | Tidak |
 | `NEXT_PUBLIC_SUPABASE_URL` | Project URL Supabase | Tidak |

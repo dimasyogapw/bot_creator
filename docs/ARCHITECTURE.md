@@ -91,7 +91,7 @@ llm_usage       id, bot_id, conversation_id, eval_run_id, eval_result_id, purpos
 8. Di background: ekstrak memory baru dengan model ringan.
 
 ## Eval dan analitik (fase 6)
-- Eval = ujian otomatis untuk bot: test case (pertanyaan + perilaku yang diharapkan) dijawab bot lewat `runBot` (channel `eval`), lalu dinilai juri (model `LLM_JUDGE_MODEL`, bawaan `claude-sonnet-5-5`, suhu 0) dengan rubrik lulus/gagal + alasan. Mesin di `lib/evals/engine.ts`, juri di `lib/evals/judge.ts`.
+- Eval = ujian otomatis untuk bot: test case (pertanyaan + perilaku yang diharapkan) dijawab bot lewat `runBot` (channel `eval`), lalu dinilai juri (model `LLM_JUDGE_MODEL`, bawaan `claude-haiku-5-5` hasil uji banding 2026-11-07, suhu 0) dengan rubrik lulus/gagal + alasan. Mesin di `lib/evals/engine.ts`, juri di `lib/evals/judge.ts`.
 - Satu run = banyak kasus; satu langkah (`POST /api/bots/<id>/evals/runs/<run>/step`) = satu kasus, supaya aman terhadap batas waktu Vercel. Klaim kasus atomik, jadi aman dipanggil bersamaan (CLI memakai 2 pekerja). Kasus yang macet lebih dari 3 menit boleh diambil ulang.
 - Keamanan saat eval: skill penyimpan data (lead, handoff) berjalan dalam mode tes, webhook POST tidak dikirim, webhook GET dipanggil sungguhan. Kasus memory dilewati jika memory bot mati. Memory pengguna uji dihapus setelah tiap kasus. Jawaban bot dibungkus sebagai data untuk juri.
 - Setiap run menyimpan salinan pengaturan bot (`bot_snapshot`) untuk perbandingan antar run. Run tidak bisa dihapus (riwayat biaya tetap utuh).

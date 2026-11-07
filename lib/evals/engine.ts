@@ -4,7 +4,7 @@ import { runBot } from "@/lib/bot/runBot";
 import { getLlmConfig } from "@/lib/llm/provider";
 import type { Bot, Citation, Message, ToolCallRecord } from "@/lib/db/types";
 import { judgeAnswer } from "./judge";
-import { estimateRunCost, type BotSnapshot } from "./compare";
+import { estimateRunCost, fallbackCostPerCase, type BotSnapshot } from "./compare";
 
 /**
  * Mesin eval. Satu run = banyak kasus; satu langkah (runNext) = satu kasus.
@@ -129,7 +129,7 @@ export async function startRun(db: SupabaseClient, bot: Bot, source: "app" | "cl
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle<{ cost_usd: number; total: number; skipped_count: number }>();
-  const est = estimateRunCost(prev ? { cost_usd: num(prev.cost_usd), total: prev.total, skipped_count: prev.skipped_count } : null, runnable);
+  const est = estimateRunCost(prev ? { cost_usd: num(prev.cost_usd), total: prev.total, skipped_count: prev.skipped_count } : null, runnable, fallbackCostPerCase(getLlmConfig().LLM_JUDGE_MODEL));
 
   const { data: run, error: runErr } = await db
     .from("eval_runs")

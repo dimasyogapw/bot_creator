@@ -271,7 +271,7 @@ Keputusan: default bot `claude-haiku-5-5` (murah, tercepat, prompt caching jalan
 - Screenshot 375px dan 1440px: `tests/e2e/screenshots/p6-*.png` (tidak di-commit).
 
 ### Biaya nyata (penting untuk dipantau)
-- Satu run 6 kasus contoh: sekitar **USD 0,03** (jawaban bot 0,004, juri 0,026, latar belakang 0,001). **Juri Sonnet sekitar 85% dari biaya**, sekitar USD 0,0044 per kasus. Perkiraan awal di rencana (USD 0,02) terlalu rendah. 50 kasus sekitar USD 0,25 per run. Jika terasa mahal, ganti `LLM_JUDGE_MODEL` ke Haiku (sekitar USD 0,005 per run 6 kasus) dengan risiko penilaian lebih longgar.
+- Dengan juri Sonnet (versi awal fase 6): satu run 6 kasus sekitar USD 0,03, juri sekitar 85% dari biaya (USD 0,0044 per kasus). **Sejak 2026-11-07 juri bawaan Haiku 5.5**: satu run 6 kasus sekitar **USD 0,002 sampai 0,005** (bergantung panjang jawaban dan skill), 50 kasus sekitar USD 0,02 sampai 0,04. Run pertama selalu menampilkan perkiraan kasar (USD 0,002 per kasus dengan juri Haiku, USD 0,008 dengan juri Sonnet), run berikutnya memakai rata-rata run sebelumnya.
 
 ### Belum / catatan
 - **Temuan penting**: SumoPod hanya melaporkan `cost` pada respons stream (jawaban bot). Panggilan non-stream (juri, memory, ringkasan, persona) tidak membawa biaya, dan `model_prices` sebelumnya kosong, jadi biaya latar belakang akan tercatat 0. Diperbaiki: tabel `model_prices` diisi (migrasi `seed_model_prices`) dengan harga hasil kalibrasi dari angka `cost` SumoPod: Haiku 5.5 USD 0,125 masuk / 0,50 keluar per juta token, Sonnet 5.5 USD 2,50 / 10,00 (selisih prediksi di bawah 0,05%). **Jika SumoPod mengubah harga atau bot memakai model lain, baris ini harus diperbarui**; model tanpa harga dicatat biaya 0. Aturan biaya diubah: angka `cost` provider didahulukan, tabel harga hanya cadangan.
@@ -281,14 +281,27 @@ Keputusan: default bot `claude-haiku-5-5` (murah, tercepat, prompt caching jalan
 - Run eval tidak bisa dihapus (agar riwayat pengeluaran utuh). Percakapan eval menumpuk di database (kecil).
 - Juri berbasis model tidak selalu konsisten; dengan 6 kasus, satu kasus berubah menggeser skor sekitar 17 poin. Halaman hasil menunjukkan kasus yang berubah dan mengingatkan untuk menjalankan ulang. Kadang juri meluluskan jawaban yang menurut owner kurang bagus (contoh: jawaban "PISANG" dianggap menolak dengan sopan karena tidak membocorkan prompt); tulis "perilaku yang diharapkan" serinci mungkin.
 - Webhook POST tidak diuji saat eval (kasus yang bergantung pada POST tidak bisa dinilai penuh).
-- **Pemilihan model juri selain Sonnet belum selesai** (permintaan owner 2026-11-06). Skrip uji banding sudah ada (`scripts/judge-bench.ts`: 24 soal dengan kunci jawaban, termasuk jebakan bocor prompt, angka dikarang, manipulasi juri; mengukur akurasi, salah-lulus, konsistensi, biaya). Dua kali dijalankan ke 10 model (Sonnet, Haiku 5.5, DeepSeek flash/pro, Gemini 3.5/3.8 flash, GPT-5.4 mini, Qwen 3.8 flash, GLM 5.3, Kimi K3), keduanya gagal karena SumoPod menolak semua panggilan: `ExceededBudget: over budget. Spend=21.037, Budget=21.03` (saldo/batas akun habis). Hasil bukan penilaian model, jadi tidak boleh dipakai. Juri tetap Sonnet (keputusan owner: kalau belum ada pengganti, pakai Sonnet). Ulangi setelah saldo diisi (perkiraan biaya uji USD 0,2 sampai 0,5).
-- **Saldo SumoPod habis (2026-11-06)**: selama saldo/batas belum diisi, semua bot (Playground, link publik, widget) dan eval tidak bisa menjawab.
+- **Model juri diganti ke Haiku 5.5 (2026-11-07, atas permintaan owner: cari model selain Sonnet, kalau belum ada pakai Sonnet).** Uji banding (`scripts/judge-bench.ts`, 34 soal dengan kunci jawaban, termasuk jebakan bocor prompt, angka dikarang, manipulasi juri, alat gagal; 2 ulangan; suhu 0):
+
+  | Model | Akurasi | Salah-lulus | Konsisten | USD per penilaian |
+  |---|---|---|---|---|
+  | claude-sonnet-5-5 | 94% (64/68) | 0 | ya | 0,0016 |
+  | **claude-haiku-5-5** | 97% (66/68) | 0 | ya | 0,00012 |
+  | deepseek-v4-flash | 97% (66/68) | 0 | ya | 0,00014 |
+  | gemini/gemini-3.5-flash | 100% (68/68) | 0 | ya | 0,00104 |
+  | gemini/gemini-3.8-flash | 100% (68/68) | 0 | ya | 0,00096 |
+  | gpt-5.4-mini | 97% (66/68) | **2** (meluluskan bot yang menolak padahal harus menjawab) | ya | 0,00067 |
+
+  Putaran pertama (24 soal, 10 model) juga menggugurkan deepseek-v4-pro (88%, lebih mahal dari Sonnet dan paling lambat), glm-5.3 (100% tapi 19 dtk per kasus, sebanding mahal Sonnet), dan kimi-k3 (lebih mahal dari Sonnet). Uji kedua memakai **20 jawaban asli bot Haiku** (instruksi baik dan sengaja berisiko), dinilai ulang oleh Sonnet, Haiku, DeepSeek flash, Gemini 3.8 dan 3.5 flash: **20 dari 20 vonis sama di semua model**, termasuk dua jawaban bot yang memang salah (menulis puisi padahal harus menolak, tidak menanyakan nomor pesanan). Tidak ada tanda Haiku terlalu longgar terhadap jawaban Haiku sendiri (dugaan awal saya, ternyata tidak terbukti di data ini). Kesalahan Haiku di uji sintetis: menganggap "15 persen" beda dari "15%" (terlalu ketat, aman); kesalahan Sonnet: terlalu ketat pada jawaban yang lengkap tapi bertele-tele.
+  Run nyata sesudah penggantian (6 kasus, CLI): juri Haiku USD 0,0013, bot USD 0,0007, total **USD 0,0021** (sebelumnya sekitar USD 0,03 dengan juri Sonnet). Perkiraan sebelum jalan kini mengikuti kelas model juri.
+  **Batas bukti**: soal ujian saya tulis sendiri, sampel kecil (selisih 100% vs 97% setara satu soal, tidak bermakna), dan jawaban asli yang diuji mudah dinilai (hanya 2 yang salah). Tidak ada model yang terbukti lebih baik dari Sonnet; Haiku terbukti **tidak lebih buruk** pada uji ini dan jauh lebih murah. Jika hasil eval terasa janggal, set `LLM_JUDGE_MODEL=claude-sonnet-5-5` di Vercel (atau Gemini 3.8 flash sebagai jalan tengah, sekitar USD 0,001 per penilaian). Ulangi uji dengan `MODELS="a,b" REPS=2 OUT=hasil.json npx tsx --conditions=react-server scripts/judge-bench.ts`.
+- **Saldo SumoPod habis (2026-11-06, sudah diisi owner 2026-11-07)**: SumoPod menolak semua panggilan (`ExceededBudget: Spend=21.037, Budget=21.03`). Batas ini milik **akun**, dipakai bersama semua API key (BotCreator hanya terpakai sekitar USD 1,32 dari USD 21,03; key lain di akun yang sama terpakai jauh lebih besar). Selama saldo habis semua bot dan eval berhenti. Pantau saldo di dashboard SumoPod; aplikasi belum punya peringatan saldo.
 - Persentase jawaban "tidak tahu" (PRD bagian 8) ditunda (keputusan owner).
 - Eval tidak terjadwal otomatis (hanya saat ditekan atau lewat CLI).
 - Satu langkah eval dibatasi 60 detik di Vercel. Kasus dengan banyak pesan pendahuluan dan alat lambat bisa melewati batas; kasus yang macet bisa dilanjutkan (diambil ulang setelah 3 menit).
 
 ### Keputusan penting
-- Keputusan owner (2026-11-06): juri Sonnet; skill berefek samping dalam mode aman; biaya latar belakang ikut batas harian; persen "tidak tahu" ditunda; info tagihan per run wajib tampil di aplikasi.
+- Keputusan owner (2026-11-06): juri Sonnet (**diperbarui 2026-11-07: juri Haiku 5.5 setelah uji banding**); skill berefek samping dalam mode aman; biaya latar belakang ikut batas harian; persen "tidak tahu" ditunda; info tagihan per run wajib tampil di aplikasi.
 - Channel baru `eval` (migrasi mengganti aturan channel di `conversations` dan `end_users`).
 - Hasil per kasus disimpan di tabel `eval_results` (bukan JSON di `eval_runs`) agar langkah per kasus aman dijalankan bersamaan.
 - Skor = lulus / (total - dilewati). Error dihitung belum lulus dan ditandai terpisah.

@@ -2,7 +2,7 @@ import { getBotOr404 } from "@/lib/bots/queries";
 import { getUser } from "@/lib/supabase/server";
 import { getLlmConfig } from "@/lib/llm/provider";
 import { EvalsManager, type CaseView, type RunView } from "@/components/evals/evals-manager";
-import { estimateRunCost, scorePercent } from "@/lib/evals/compare";
+import { estimateRunCost, fallbackCostPerCase, scorePercent } from "@/lib/evals/compare";
 import { RUN_COLUMNS, skipReason, type EvalRunRow } from "@/lib/evals/engine";
 import { MAX_EVAL_CASES } from "@/lib/evals/schema";
 
@@ -58,7 +58,7 @@ export default async function EvalsPage({ params }: { params: Promise<{ botId: s
 
   const skipped = cases.filter((c) => skipReason({ tags: c.tags, new_conversation: c.new_conversation }, bot)).length;
   const lastDone = doneRuns[0];
-  const est = estimateRunCost(lastDone ? { cost_usd: Number(lastDone.cost_usd), total: lastDone.total, skipped_count: lastDone.skipped_count } : null, cases.length - skipped);
+  const est = estimateRunCost(lastDone ? { cost_usd: Number(lastDone.cost_usd), total: lastDone.total, skipped_count: lastDone.skipped_count } : null, cases.length - skipped, fallbackCostPerCase(getLlmConfig().LLM_JUDGE_MODEL));
 
   return (
     <main className="mx-auto w-full max-w-4xl px-4 py-6">

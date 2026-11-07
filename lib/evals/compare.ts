@@ -71,13 +71,22 @@ export function diffSnapshots(current: BotSnapshot | null | undefined, previous:
   return (Object.keys(SNAPSHOT_LABELS) as (keyof BotSnapshot)[]).filter((k) => current[k] !== previous[k]).map((k) => SNAPSHOT_LABELS[k]);
 }
 
-/** Perkiraan biaya kasar per kasus bila belum ada run sebelumnya (bot murah + juri Sonnet). */
-export const FALLBACK_COST_PER_CASE_USD = 0.008;
+/** Perkiraan biaya kasar per kasus bila belum ada run sebelumnya: juri kelas besar (Sonnet/Opus) jauh lebih mahal dari Haiku. */
+export const FALLBACK_COST_PER_CASE_USD = 0.002;
+export const FALLBACK_COST_PER_CASE_BIG_JUDGE_USD = 0.008;
 
-export function estimateRunCost(previous: { cost_usd: number; total: number; skipped_count: number } | null, runnableCases: number): { usd: number; basis: "run_sebelumnya" | "perkiraan_kasar" } {
+export function fallbackCostPerCase(judgeModel: string): number {
+  return /sonnet|opus|fable/i.test(judgeModel) ? FALLBACK_COST_PER_CASE_BIG_JUDGE_USD : FALLBACK_COST_PER_CASE_USD;
+}
+
+export function estimateRunCost(
+  previous: { cost_usd: number; total: number; skipped_count: number } | null,
+  runnableCases: number,
+  fallbackPerCase: number = FALLBACK_COST_PER_CASE_USD,
+): { usd: number; basis: "run_sebelumnya" | "perkiraan_kasar" } {
   if (previous) {
     const ran = previous.total - previous.skipped_count;
     if (ran > 0) return { usd: Math.round((previous.cost_usd / ran) * runnableCases * 1e6) / 1e6, basis: "run_sebelumnya" };
   }
-  return { usd: Math.round(FALLBACK_COST_PER_CASE_USD * runnableCases * 1e6) / 1e6, basis: "perkiraan_kasar" };
+  return { usd: Math.round(fallbackPerCase * runnableCases * 1e6) / 1e6, basis: "perkiraan_kasar" };
 }

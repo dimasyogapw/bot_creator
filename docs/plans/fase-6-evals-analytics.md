@@ -4,7 +4,7 @@
 Owner bisa mengukur kualitas bot secara otomatis sebelum dan sesudah mengubahnya, serta memantau pemakaian dan biaya, termasuk biaya setiap kali eval dijalankan.
 
 ## Keputusan owner
-1. Model juri: `claude-sonnet-5-5` (env `LLM_JUDGE_MODEL`, nilai bawaan di kode).
+1. Model juri: awalnya `claude-sonnet-5-5`. **Diperbarui 2026-11-07 atas permintaan owner (cari model lain, kalau belum ada pakai Sonnet)**: setelah uji banding (lihat PROGRESS.md) bawaan diganti `claude-haiku-5-5`. Env `LLM_JUDGE_MODEL` bisa mengembalikannya ke Sonnet.
 2. Skill berefek samping saat eval: simpan data pelanggan dan alihkan ke manusia berjalan dalam mode tes (tidak menulis). Webhook GET dipanggil sungguhan. Webhook POST tidak dipanggil, dicatat "dilewati (mode eval)".
 3. Biaya latar belakang ikut batas biaya harian fase 5.
 4. Persentase jawaban "tidak tahu" (PRD bagian 8) ditunda.

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { evalCaseInputSchema, MAX_EVAL_CASES, parseJsonl, toJsonlLine } from "@/lib/evals/schema";
-import { compareResults, diffSnapshots, estimateRunCost, FALLBACK_COST_PER_CASE_USD, scorePercent } from "@/lib/evals/compare";
+import { compareResults, diffSnapshots, estimateRunCost, fallbackCostPerCase, FALLBACK_COST_PER_CASE_USD, scorePercent } from "@/lib/evals/compare";
 import { buildJudgeRequest, JUDGE_SYSTEM_PROMPT, parseVerdict } from "@/lib/evals/judge";
 import { skipReason } from "@/lib/evals/engine";
 import { EXAMPLE_CASES_JSONL } from "@/lib/evals/examples";
@@ -89,6 +89,10 @@ describe("skor dan perbandingan run", () => {
     expect(estimateRunCost({ cost_usd: 0.03, total: 6, skipped_count: 0 }, 10)).toEqual({ usd: 0.05, basis: "run_sebelumnya" });
     expect(estimateRunCost({ cost_usd: 0, total: 2, skipped_count: 2 }, 3).basis).toBe("perkiraan_kasar");
     expect(estimateRunCost(null, 6)).toEqual({ usd: Math.round(FALLBACK_COST_PER_CASE_USD * 6 * 1e6) / 1e6, basis: "perkiraan_kasar" });
+    // perkiraan awal mengikuti kelas model juri
+    expect(fallbackCostPerCase("claude-haiku-5-5")).toBe(0.002);
+    expect(fallbackCostPerCase("claude-sonnet-5-5")).toBe(0.008);
+    expect(estimateRunCost(null, 6, fallbackCostPerCase("claude-sonnet-5-5")).usd).toBeCloseTo(0.048, 6);
   });
 
   it("kasus memory dilewati jika memory bot mati", () => {
