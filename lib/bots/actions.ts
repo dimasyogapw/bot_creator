@@ -107,8 +107,8 @@ export async function generatePersonaDraft(input: unknown): Promise<ActionResult
   const parsed = personaAnswersSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Periksa kembali jawabanmu.", fields: fieldErrors(parsed.error) };
   try {
-    await requireUser();
-    const data = await generatePersona(parsed.data as Required<typeof parsed.data>);
+    const { supabase } = await requireUser();
+    const data = await generatePersona(parsed.data as Required<typeof parsed.data>, { db: supabase });
     return { ok: true, data };
   } catch (e) {
     return handle(e, "menyusun persona", "Asisten persona gagal menyusun draf. Coba lagi atau tulis instruksi sendiri.");

@@ -9,6 +9,7 @@ import { Markdown } from "@/components/chat/markdown";
 import { Citations } from "@/components/chat/citations";
 import { UserImages } from "@/components/chat/message-item";
 import { setMessageFeedback } from "@/lib/bots/actions";
+import { CaseFromMessage } from "@/components/evals/case-from-message";
 import { formatDateTime } from "@/lib/conversations/labels";
 import { cn } from "@/lib/utils";
 import type { MessageContent } from "@/lib/db/types";
@@ -33,8 +34,11 @@ export function Transcript({
   bot,
   messages,
   imageUrls = {},
+  evalSource,
 }: {
   bot: { name: string; avatar_url: string | null };
+  /** Jika diisi, tiap jawaban bot punya tombol "Buat test case". */
+  evalSource?: { botId: string; conversationId: string };
   messages: TranscriptMessage[];
   imageUrls?: Record<string, string>;
 }) {
@@ -118,6 +122,7 @@ export function Transcript({
                     <ThumbsDown className={cn(feedback[m.id] === -1 && "fill-current")} />
                   </Button>
                 </span>
+                {evalSource && <CaseFromMessage botId={evalSource.botId} conversationId={evalSource.conversationId} messageId={m.id} highlight={feedback[m.id] === -1} />}
                 <span data-testid="message-meta">
                   {[
                     m.model,

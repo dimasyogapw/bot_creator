@@ -175,3 +175,26 @@ describe("lain-lain", () => {
     expect(supportsVision("deepseek-v4-flash")).toBe(false);
   });
 });
+
+describe("mode eval pada webhook", () => {
+  const ctx = (extra: object) => ({ db: fakeDb() as never, bot: { id: "b", name: "B" }, conversationId: "c", endUserId: null, citations: [], ...extra });
+  const skill = (method: "GET" | "POST") =>
+    ({ id: null, bot_id: "b", type: "http_webhook", name: "X", tool_name: "api_x", description: "", enabled: true, config: webhookConfigSchema.parse({ ...baseCfg, headers: [], method }) }) as never;
+
+  it("POST tidak dikirim saat eval (mencegah efek samping nyata)", async () => {
+    safeRequest.mockClear();
+    const out = await httpWebhookSkill.execute(ctx({ skipWebhookPost: true }), skill("POST"), { kota: "Bogor" });
+    expect(safeRequest).not.toHaveBeenCalled();
+    expect(out.ok).toBe(true);
+    expect(out.summary).toBe("dilewati (mode eval)");
+  });
+
+  it("GET tetap dipanggil sungguhan saat eval; POST tetap dikirim di luar eval (tombol Tes skill)", async () => {
+    safeRequest.mockClear();
+    safeRequest.mockResolvedValue({ status: 200, contentType: "application/json", body: Buffer.from('{"ok":1}'), headers: {}, finalUrl: "" });
+    await httpWebhookSkill.execute(ctx({ skipWebhookPost: true }), skill("GET"), { kota: "Bogor" });
+    expect(safeRequest).toHaveBeenCalledTimes(1);
+    await httpWebhookSkill.execute(ctx({ dryRun: true }), skill("POST"), { kota: "Bogor" });
+    expect(safeRequest).toHaveBeenCalledTimes(2);
+  });
+});

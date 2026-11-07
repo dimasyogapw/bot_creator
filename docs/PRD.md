@@ -24,7 +24,7 @@ Bot bisa dites di dashboard, lalu dipublikasikan lewat link publik, widget websi
 | 3 | Riwayat percakapan, memory jangka panjang per end user | selesai 2026-11-05 |
 | 4 | Skills: tool yang bisa dipasang per bot (knowledge search, webhook HTTP/integrasi API, jam/tanggal, baca halaman web, cari di internet, alihkan ke manusia, simpan data pelanggan) + gambar dari pengguna | selesai 2026-11-05 |
 | 5 | Link publik per bot, widget embed, rate limit | selesai 2026-11-05 |
-| 6 | Eval set per bot, analytics dasar (jumlah chat, token, biaya) | |
+| 6 | Eval set per bot (juri Claude, perbandingan antar run, tagihan per run), analytics dasar (jumlah chat, token, biaya, latensi, jempol) | selesai 2026-11-06 (menunggu review owner) |
 | 7 | Integrasi Telegram, lalu WhatsApp, lalu Discord | |
 
 ### Asisten persona (ditambahkan 2026-11-04, fase 1)

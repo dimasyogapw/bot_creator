@@ -27,14 +27,17 @@ export function normalizeUsage(u: ProviderUsage | null | undefined): NormalizedU
 }
 
 /**
- * Biaya USD = usage x harga di tabel model_prices.
+ * Biaya USD. Angka `cost` dari provider dipakai jika ada (SumoPod hanya mengirimnya pada respons stream,
+ * yaitu jawaban bot). Jika tidak ada (panggilan non-stream: juri eval, memory, ringkasan, persona),
+ * biaya dihitung dari usage x harga di tabel model_prices.
  * prompt_tokens sudah termasuk token cache, jadi dipisah supaya tidak dihitung dua kali.
- * Jika harga model belum diisi, pakai biaya yang dilaporkan provider (jika ada).
+ * Tanpa keduanya: null (biaya tidak diketahui, dihitung 0 di total).
  */
 export function computeCostUsd(usage: ProviderUsage | null | undefined, price: ModelPrice | null): number | null {
   if (!usage) return null;
   const n = normalizeUsage(usage);
-  if (!price) return typeof usage.cost === "number" ? round6(usage.cost) : null;
+  if (typeof usage.cost === "number") return round6(usage.cost);
+  if (!price) return null;
   const plainIn = Math.max(0, n.tokensIn - n.tokensCached - n.tokensCacheWrite);
   const cost =
     plainIn * Number(price.input_per_mtok) +

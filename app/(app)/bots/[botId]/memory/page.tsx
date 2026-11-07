@@ -21,6 +21,7 @@ export default async function MemoryPage({ params }: { params: Promise<{ botId: 
     .from("end_users")
     .select("id, channel, display_name, external_id, last_seen_at, memories(id, content, importance, updated_at)")
     .eq("bot_id", bot.id)
+    .neq("channel", "eval")
     .order("last_seen_at", { ascending: false })
     .returns<EndUserWithMemories[]>();
   if (error) console.error("[memory] gagal memuat", error);

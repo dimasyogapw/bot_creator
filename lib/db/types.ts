@@ -1,4 +1,4 @@
-export type Channel = "playground" | "web" | "widget" | "telegram" | "whatsapp";
+export type Channel = "playground" | "web" | "widget" | "telegram" | "whatsapp" | "eval";
 
 export interface Bot {
   id: string;

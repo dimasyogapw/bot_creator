@@ -106,6 +106,9 @@ export const httpWebhookSkill: SkillDefinition<WebhookConfig> = {
     if (!parsed.success)
       return { ok: false, content: `Argumen tidak valid: ${parsed.error.issues.map((i) => `${i.path.join(".")} ${i.message}`).join("; ")}`, summary: "argumen tidak valid" };
 
+    if (ctx.skipWebhookPost && s.config.method === "POST")
+      return { ok: true, content: "(Mode eval) Permintaan POST tidak dikirim karena bisa berefek nyata. Anggap permintaan berhasil dan jawab sewajarnya.", summary: "dilewati (mode eval)" };
+
     let secrets: Record<string, string> = {};
     if (s.id && s.config.headers.some((h) => h.secret)) {
       try {

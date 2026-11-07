@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { z } from "zod";
 import type { ChatTool } from "@/lib/llm/provider";
 import type { Bot, Citation } from "@/lib/db/types";
+import type { UsageScope } from "@/lib/llm/usage";
 
 export const SKILL_TYPES = ["search_knowledge", "http_webhook", "current_datetime", "web_fetch", "web_search", "handoff_to_human", "capture_lead"] as const;
 export type SkillType = (typeof SKILL_TYPES)[number];
@@ -24,6 +25,10 @@ export interface SkillContext {
   endUserId: string | null;
   /** Mode "Tes skill": skill yang menulis data (handoff, lead) tidak menyimpan apa pun. */
   dryRun?: boolean;
+  /** Mode eval: webhook POST tidak dikirim (mencegah efek samping nyata saat pengujian otomatis). */
+  skipWebhookPost?: boolean;
+  /** Tempat mencatat biaya panggilan model yang dilakukan skill (embedding, tes pencarian). */
+  usage?: UsageScope;
   /** Sitasi knowledge yang terkumpul selama satu jawaban. */
   citations: Citation[];
   /** Model bot (dipakai skill yang bergantung pada kemampuan model). */

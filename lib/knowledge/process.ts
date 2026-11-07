@@ -1,6 +1,8 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { embed } from "@/lib/llm/provider";
+import { embed, getLlmConfig } from "@/lib/llm/provider";
+import { recordLlmUsage } from "@/lib/llm/usage";
+import type { ProviderUsage } from "@/lib/bot/pricing";
 import type { KnowledgeSource } from "@/lib/db/types";
 import { chunkSegments } from "./chunk";
 import { extractByMime, extractHtml, extractPdf, extractPlain, KnowledgeError, type Extracted } from "./extract";
@@ -112,6 +114,7 @@ async function runEmbedding(db: SupabaseClient, s: KnowledgeSource): Promise<Kno
     let vectors: number[][];
     try {
       const res = await embed(todo.map((c) => `${s.title}\n\n${c.content}`));
+      await recordLlmUsage({ db, botId: s.bot_id }, "embedding", getLlmConfig().EMBEDDING_MODEL ?? "embedding", res.usage as ProviderUsage | undefined);
       vectors = [...res.data].sort((a, b) => a.index - b.index).map((d) => d.embedding);
       if (vectors.length !== todo.length) throw new Error(`embedding count mismatch ${vectors.length}/${todo.length}`);
     } catch (e) {

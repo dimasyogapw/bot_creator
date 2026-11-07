@@ -1,6 +1,8 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { chat, getLlmConfig } from "@/lib/llm/provider";
+import { recordLlmUsage, type UsageScope } from "@/lib/llm/usage";
+import type { ProviderUsage } from "./pricing";
 
 /**
  * Ringkasan otomatis riwayat panjang. Jika pesan yang belum diringkas lebih dari SUMMARY_TRIGGER,
@@ -30,7 +32,8 @@ export function buildSummaryRequest(previous: string | null, messages: { role: s
   ];
 }
 
-export async function maybeSummarize(db: SupabaseClient, conversationId: string): Promise<boolean> {
+/** `usage`: tempat mencatat biaya (opsional; tanpa ini biaya tidak dicatat). */
+export async function maybeSummarize(db: SupabaseClient, conversationId: string, usage?: UsageScope): Promise<boolean> {
   const { data: conv, error } = await db.from("conversations").select("summary, summary_until").eq("id", conversationId).maybeSingle();
   if (error) throw error;
   if (!conv) return false;
@@ -49,12 +52,14 @@ export async function maybeSummarize(db: SupabaseClient, conversationId: string)
   if (msgs.length <= SUMMARY_TRIGGER) return false;
 
   const toSummarize = msgs.slice(0, msgs.length - KEEP_RECENT);
+  const model = getLlmConfig().LLM_LIGHT_MODEL;
   const res = await chat({
-    model: getLlmConfig().LLM_LIGHT_MODEL,
+    model,
     messages: buildSummaryRequest(conv.summary, toSummarize.map((m) => ({ role: m.role, text: m.content?.text ?? "" }))),
     temperature: 0.2,
     maxTokens: 2048,
   });
+  await recordLlmUsage(usage, "summary", model, res.usage as ProviderUsage | undefined);
   const summary = (res.choices[0]?.message?.content ?? "").trim().slice(0, MAX_SUMMARY_CHARS);
   if (!summary) throw new Error("ringkasan kosong");
 

@@ -177,7 +177,7 @@ export async function testSkill(
     if (r.config === null) return { ok: false, error: "Konfigurasi skill belum valid. Periksa dan simpan ulang." };
     if (!r.available.ok) return { ok: false, error: r.available.reason };
     const t0 = Date.now();
-    const out = await executeSkill({ db, bot, model: bot.model as string, conversationId: null, endUserId: null, dryRun: true, citations: [] }, r, args);
+    const out = await executeSkill({ db, bot, model: bot.model as string, conversationId: null, endUserId: null, dryRun: true, citations: [], usage: { db, botId } }, r, args);
     return { ok: true, data: { ok: out.ok, summary: out.summary, content: out.content.slice(0, 6000), ms: Date.now() - t0 } };
   } catch (e) {
     return fail(e, "menjalankan tes");

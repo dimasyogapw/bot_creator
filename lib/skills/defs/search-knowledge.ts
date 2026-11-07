@@ -27,7 +27,7 @@ export const searchKnowledgeSkill: SkillDefinition<Record<string, never>> = {
   async execute(ctx, _s, args) {
     const a = searchArgsSchema.safeParse(args);
     if (!a.success) return { ok: false, content: 'Argumen tidak valid. Kirim {"query": "kata kunci pencarian"}.', summary: "argumen tidak valid" };
-    const hits = await searchKnowledge(ctx.db, ctx.bot.id, a.data.query);
+    const hits = await searchKnowledge(ctx.db, ctx.bot.id, a.data.query, undefined, ctx.usage);
     const r = assignCitations(hits, ctx.citations);
     ctx.citations.splice(0, ctx.citations.length, ...r.citations);
     return { ok: true, content: formatToolResult(a.data.query, r.numbered), summary: `${hits.length} potongan ditemukan` };

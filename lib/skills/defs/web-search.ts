@@ -2,6 +2,8 @@ import { z } from "zod";
 import { NetError } from "@/lib/net/safe-http";
 import { tavilyConfigured, tavilySearch } from "@/lib/search/tavily";
 import { chat } from "@/lib/llm/provider";
+import { recordLlmUsage } from "@/lib/llm/usage";
+import type { ProviderUsage } from "@/lib/bot/pricing";
 import { supportsNativeWebSearch } from "@/lib/llm/capabilities";
 import { domainListSchema } from "../domains";
 import { truncate, wrapData, type SkillDefinition } from "../types";
@@ -51,6 +53,7 @@ export const webSearchSkill: SkillDefinition<Config> = {
           webSearch: true,
           messages: [{ role: "user", content: `Cari di internet lalu rangkum singkat dengan alamat sumbernya: ${a.data.query}` }],
         });
+        await recordLlmUsage(ctx.usage, "web_search_test", ctx.model, res.usage as ProviderUsage | undefined);
         const text = res.choices[0]?.message?.content ?? "";
         const searches = (res.usage as { server_tool_use?: { web_search_requests?: number } } | undefined)?.server_tool_use?.web_search_requests ?? 0;
         return { ok: !!text, content: text || "(kosong)", summary: `pencarian bawaan model, ${searches} pencarian` };

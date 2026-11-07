@@ -19,6 +19,13 @@ describe("pricing", () => {
     expect(computeCostUsd({ prompt_tokens: 10, completion_tokens: 5, cost: 0.000364 }, null)).toBe(0.000364);
   });
 
+  it("biaya dari provider didahulukan; tabel harga hanya cadangan untuk respons tanpa cost", () => {
+    // respons stream dengan cache: angka provider benar, perhitungan tabel (tanpa harga cache) akan terlalu besar
+    expect(computeCostUsd({ prompt_tokens: 14022, completion_tokens: 10, cache_read_input_tokens: 14013, cost: 0.0011 }, { ...price, cache_read_per_mtok: null })).toBe(0.0011);
+    // respons non-stream (juri, memory): tidak ada cost -> hitung dari harga
+    expect(computeCostUsd({ prompt_tokens: 2000, completion_tokens: 500 }, { ...price, input_per_mtok: 2.5, output_per_mtok: 10 })).toBeCloseTo(0.01, 6);
+  });
+
   it("null jika tidak ada usage atau harga", () => {
     expect(computeCostUsd(undefined, price)).toBeNull();
     expect(computeCostUsd({ prompt_tokens: 1 }, null)).toBeNull();
