@@ -8,7 +8,7 @@
 | 3 Percakapan + memory | **selesai** (PR #5 di-merge owner 2026-11-05) | DoD 1 sampai 6 lulus di Production |
 | 4 Skills | **selesai** (PR #7 di-merge owner 2026-11-05) | DoD 1 sampai 9 lulus; Production 27 lulus |
 | 5 Publikasi | **selesai** (PR #8, #9, #10 di-merge owner 2026-11-05) | DoD 1 sampai 8 lulus di Production |
-| 6 Evals + analytics | **selesai, menunggu review owner** (PR ke main) | DoD 1 sampai 4 lulus di test otomatis lokal |
+| 6 Evals + analytics | **selesai** (PR #12 di-merge owner 2026-11-07) | DoD 1 sampai 4 lulus di Production; Production 41 lulus |
 | 7 Telegram / WhatsApp | belum | |
 
 ## Keputusan penting
@@ -272,6 +272,8 @@ Keputusan: default bot `claude-haiku-5-5` (murah, tercepat, prompt caching jalan
 
 ### Biaya nyata (penting untuk dipantau)
 - Dengan juri Sonnet (versi awal fase 6): satu run 6 kasus sekitar USD 0,03, juri sekitar 85% dari biaya (USD 0,0044 per kasus). **Sejak 2026-11-07 juri bawaan Haiku 5.5**: satu run 6 kasus sekitar **USD 0,002 sampai 0,005** (bergantung panjang jawaban dan skill), 50 kasus sekitar USD 0,02 sampai 0,04. Run pertama selalu menampilkan perkiraan kasar (USD 0,002 per kasus dengan juri Haiku, USD 0,008 dengan juri Sonnet), run berikutnya memakai rata-rata run sebelumnya.
+
+- Setelah merge (2026-11-07), test penuh ke Production (`E2E_BASE_URL=https://bot-creator-three.vercel.app`) dengan juri bawaan Haiku 5.5: **41 lulus, 3 dilewati** (test webhook yang butuh server API tiruan lokal; lulus di lokal). Semua 8 test fase 6 lulus (6 kasus contoh, perbandingan setelah prompt diubah, tagihan run = data sumber, Analitik = database, buat test case dari percakapan, kasus memory dilewati, keamanan). Log error Production 2 jam terakhir hanya 2 penolakan login yang dipicu test keamanan. Deployment `dpl_BsnpEi3gDXpm22Cup9ZoqPbkciV9` (commit `9e8f22f`).
 
 ### Belum / catatan
 - **Temuan penting**: SumoPod hanya melaporkan `cost` pada respons stream (jawaban bot). Panggilan non-stream (juri, memory, ringkasan, persona) tidak membawa biaya, dan `model_prices` sebelumnya kosong, jadi biaya latar belakang akan tercatat 0. Diperbaiki: tabel `model_prices` diisi (migrasi `seed_model_prices`) dengan harga hasil kalibrasi dari angka `cost` SumoPod: Haiku 5.5 USD 0,125 masuk / 0,50 keluar per juta token, Sonnet 5.5 USD 2,50 / 10,00 (selisih prediksi di bawah 0,05%). **Jika SumoPod mengubah harga atau bot memakai model lain, baris ini harus diperbarui**; model tanpa harga dicatat biaya 0. Aturan biaya diubah: angka `cost` provider didahulukan, tabel harga hanya cadangan.
