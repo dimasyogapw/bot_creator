@@ -63,6 +63,10 @@ handoff_requests id, bot_id, conversation_id, end_user_id, reason, summary,
                 status (open|resolved), created_at, resolved_at
 leads           id, bot_id, conversation_id, end_user_id, data jsonb, created_at
 rate_limits     key, bucket, count   (hanya server)
+channel_connections id, bot_id, channel (telegram), enabled, status (connected|error), bot_username,
+                external_bot_id, last_error, last_message_at   (token dan kode rahasia webhook di Supabase Vault)
+channel_updates connection_id, update_id   (anti-ganda; hanya server)
+channel_chats   connection_id, chat_id, conversation_id   (percakapan yang sedang berlanjut per chat; hanya server)
 conversations   id, bot_id, end_user_id, channel (termasuk eval), title, summary, summary_until,
                 memory_until, created_at, updated_at
 messages        id, conversation_id, role, content jsonb, tokens_in, tokens_out,
@@ -97,6 +101,13 @@ llm_usage       id, bot_id, conversation_id, eval_run_id, eval_result_id, purpos
 - Setiap run menyimpan salinan pengaturan bot (`bot_snapshot`) untuk perbandingan antar run. Run tidak bisa dihapus (riwayat biaya tetap utuh).
 - Biaya: jawaban bot tetap di `messages.cost_usd`; semua panggilan model lain dicatat di `llm_usage` lewat `lib/llm/usage.ts` (gagal mencatat tidak pernah menghentikan pekerjaan utama). Biaya run = jumlah biaya bot (messages) + juri + latar belakang (llm_usage). Batas biaya harian fase 5 ikut menghitung biaya latar belakang channel publik.
 - Analitik per bot per hari (WIB) lewat fungsi SQL `bot_analytics` (security invoker). Channel `eval` dihitung terpisah sebagai "biaya eval" dan tidak ikut statistik chat.
+
+## Channel Telegram (fase 7)
+- Adapter di `lib/channels/telegram/`: `api.ts` (klien Bot API lewat `lib/net/safe-http.ts`, token disensor dari semua galat), `format.ts` (markdown ke HTML Telegram, pemecah pesan 4096 karakter), `parse.ts` (update masuk dengan Zod, perintah, perbandingan rahasia), `connection.ts` (hubungkan/putuskan, rahasia di Vault), `handler.ts` (pesan masuk ke `runBot`, balasan keluar), `actions.ts` (aksi server untuk tab Publikasi).
+- Alur: owner menempel token di tab Publikasi, aplikasi memeriksa (`getMe`), menyimpan token dan kode rahasia acak di Vault (`set_channel_secret`, hanya `service_role`), lalu `setWebhook` ke `/api/telegram/webhook/<connection_id>` dengan `secret_token`. Webhook: kode rahasia dibandingkan (`timingSafeEqual`), `update_id` diklaim sekali (`claim_channel_update`), balasan 200 segera, pemrosesan lewat `after()` dengan batas jawaban 50 detik.
+- Hanya chat pribadi dan teks. Grup, bot lain, dan update selain pesan diabaikan; pesan non-teks dibalas "hanya bisa membaca teks". Perintah `/start` (pesan sambutan) dan `/baru` (kosongkan penunjuk percakapan di `channel_chats`).
+- Batas pemakaian memakai `checkLimits` yang sama dengan link publik (per menit per chat, harian, biaya harian) dan menghitung channel `telegram`. Hanya Production yang bisa dihubungkan di Vercel (Preview dilindungi login). `TELEGRAM_API_BASE` (server Telegram tiruan) hanya berlaku di luar Vercel.
+- Rahasia tidak dihapus lewat SQL: saat diputus atau bot dihapus, token dan kode rahasia ditimpa kosong lalu baris koneksi dihapus oleh aplikasi (baris Vault kosong tersisa; pembersihannya butuh migrasi dengan perintah hapus, ditunda).
 
 ## Keamanan
 - Konten knowledge dibungkus tag `<document>` dan system prompt menegaskan bahwa isinya data, bukan instruksi.
