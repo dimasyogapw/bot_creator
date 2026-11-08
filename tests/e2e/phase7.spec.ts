@@ -315,11 +315,14 @@ test.describe.serial("Fase 7: Telegram", () => {
     await db.from("bots").update({ per_minute_limit: 2 }).eq("id", botId);
     const chat = 5004;
     const before = await countAssistant();
+    // Batas per menit memakai jendela menit tetap: mulai di awal menit supaya kelima pesan jatuh di jendela yang sama.
+    const sec = new Date().getSeconds();
+    if (sec > 40) await new Promise((r) => setTimeout(r, (61 - sec) * 1000));
     for (let i = 0; i < 5; i++) expect((await post(request, textUpdate(chat, `Pertanyaan nomor ${i + 1}: toko buka jam berapa?`))).status()).toBe(200);
-    await waitReplies(chat, 5, 150_000);
-    const texts = msgsFor(chat).map((m) => m.text);
-    expect(texts.filter((t) => t.includes("terlalu cepat")).length).toBeGreaterThanOrEqual(3);
-    expect(await countAssistant()).toBeLessThanOrEqual(before + 2);
+    // 2 dijawab bot, 3 ditolak ramah. Tunggu sampai keadaan akhir tercapai (jawaban bot butuh waktu, penolakan cepat).
+    await expect.poll(() => msgsFor(chat).filter((m) => m.text.includes("terlalu cepat")).length, { timeout: 150_000, intervals: [500, 1000] }).toBe(3);
+    await expect.poll(() => msgsFor(chat).length, { timeout: 150_000, intervals: [1000, 2000] }).toBe(5);
+    expect(await countAssistant()).toBe(before + 2);
     await db.from("bots").update({ per_minute_limit: 20 }).eq("id", botId);
 
     // Biaya harian 0: pesan batas, model tidak dipanggil
