@@ -44,6 +44,7 @@ alter table public.channel_updates enable row level security;
 revoke all on public.channel_updates from anon, authenticated;
 
 -- Klaim satu pesan masuk. true = baru (boleh diproses), false = sudah pernah diproses.
+-- Pembersihan catatan lama dilakukan kode aplikasi (bukan di sini).
 create or replace function public.claim_channel_update(p_connection_id uuid, p_update_id bigint)
 returns boolean language plpgsql security definer set search_path = '' as $$
 declare
@@ -55,9 +56,6 @@ begin
   insert into public.channel_updates (connection_id, update_id) values (p_connection_id, p_update_id)
   on conflict do nothing;
   get diagnostics v_rows = row_count;
-  if random() < 0.02 then
-    delete from public.channel_updates where created_at < now() - interval '3 days';
-  end if;
   return v_rows = 1;
 end;
 $$;
@@ -86,7 +84,7 @@ begin
   if (select auth.role()) <> 'service_role' then
     raise exception 'tidak diizinkan' using errcode = '42501';
   end if;
-  if p_key not in ('token', 'webhook_secret') or p_value is null or char_length(p_value) > 500 then
+  if p_key not in ('token', 'webhook_secret') or p_value is null or char_length(p_value) > 500 then -- nilai kosong boleh: dipakai menimpa rahasia saat koneksi diputus
     raise exception 'data tidak valid' using errcode = '22023';
   end if;
   if not exists (select 1 from public.channel_connections where id = p_connection_id) then
@@ -115,33 +113,12 @@ begin
 end;
 $$;
 
-create or replace function public.delete_channel_secrets(p_connection_id uuid)
-returns void language plpgsql security definer set search_path = '' as $$
-begin
-  if (select auth.role()) <> 'service_role' then
-    raise exception 'tidak diizinkan' using errcode = '42501';
-  end if;
-  delete from vault.secrets where name like 'channel:' || p_connection_id::text || ':%';
-end;
-$$;
-
--- Koneksi (atau bot) dihapus: rahasianya ikut dihapus.
-create or replace function public.delete_channel_secrets_on_delete()
-returns trigger language plpgsql security definer set search_path = '' as $$
-begin
-  delete from vault.secrets where name like 'channel:' || old.id::text || ':%';
-  return old;
-end;
-$$;
-create trigger channel_connections_delete_secrets after delete on public.channel_connections
-  for each row execute function public.delete_channel_secrets_on_delete();
+-- Rahasia TIDAK dihapus lewat SQL di sini. Saat koneksi diputus atau bot dihapus, kode aplikasi menimpa
+-- token dan kode rahasia dengan nilai kosong (set_channel_secret). Pembersihan baris kosong menyusul di migrasi terpisah.
 
 revoke execute on function public.claim_channel_update(uuid, bigint) from public, anon, authenticated;
 revoke execute on function public.set_channel_secret(uuid, text, text) from public, anon, authenticated;
 revoke execute on function public.get_channel_secrets(uuid) from public, anon, authenticated;
-revoke execute on function public.delete_channel_secrets(uuid) from public, anon, authenticated;
-revoke execute on function public.delete_channel_secrets_on_delete() from public, anon, authenticated;
 grant execute on function public.claim_channel_update(uuid, bigint) to service_role;
 grant execute on function public.set_channel_secret(uuid, text, text) to service_role;
 grant execute on function public.get_channel_secrets(uuid) to service_role;
-grant execute on function public.delete_channel_secrets(uuid) to service_role;
