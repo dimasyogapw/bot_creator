@@ -27,8 +27,8 @@ export default defineConfig({
         command: `npm run start -- -p ${PORT}`,
         url: `http://localhost:${PORT}/login`,
         reuseExistingServer: true,
-        // Izinkan server mock webhook di localhost khusus test lokal (tidak pernah aktif di Vercel).
-        env: { E2E_ALLOW_PRIVATE_HOSTS: "localhost" },
+        // Izinkan server mock webhook dan Telegram tiruan di localhost khusus test lokal (tidak pernah aktif di Vercel).
+        env: { E2E_ALLOW_PRIVATE_HOSTS: "localhost", TELEGRAM_API_BASE: "http://localhost:3197" },
         timeout: 120_000,
       },
 });
