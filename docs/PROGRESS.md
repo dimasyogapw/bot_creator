@@ -8,8 +8,8 @@
 | 3 Percakapan + memory | **selesai** (PR #5 di-merge owner 2026-11-05) | DoD 1 sampai 6 lulus di Production |
 | 4 Skills | **selesai** (PR #7 di-merge owner 2026-11-05) | DoD 1 sampai 9 lulus; Production 27 lulus |
 | 5 Publikasi | **selesai** (PR #8, #9, #10 di-merge owner 2026-11-05) | DoD 1 sampai 8 lulus di Production |
-| 6 Evals + analytics | **selesai, menunggu review owner** (PR ke main) | DoD 1 sampai 4 lulus di test otomatis lokal |
-| 7 Telegram / WhatsApp | belum | |
+| 6 Evals + analytics | **selesai** (PR #12 di-merge owner 2026-11-07) | DoD 1 sampai 4 lulus di Production; Production 41 lulus |
+| 7 Telegram (lalu WhatsApp, Discord) | **Telegram selesai, menunggu review owner** (PR ke main) | DoD 1 sampai 7 lulus di test lokal dengan server Telegram tiruan; uji dengan bot Telegram sungguhan menunggu owner. WhatsApp dan Discord belum |
 
 ## Keputusan penting
 - 2026-11-04: Provider LLM default SumoPod, cadangan OpenRouter.
@@ -273,6 +273,8 @@ Keputusan: default bot `claude-haiku-5-5` (murah, tercepat, prompt caching jalan
 ### Biaya nyata (penting untuk dipantau)
 - Dengan juri Sonnet (versi awal fase 6): satu run 6 kasus sekitar USD 0,03, juri sekitar 85% dari biaya (USD 0,0044 per kasus). **Sejak 2026-11-07 juri bawaan Haiku 5.5**: satu run 6 kasus sekitar **USD 0,002 sampai 0,005** (bergantung panjang jawaban dan skill), 50 kasus sekitar USD 0,02 sampai 0,04. Run pertama selalu menampilkan perkiraan kasar (USD 0,002 per kasus dengan juri Haiku, USD 0,008 dengan juri Sonnet), run berikutnya memakai rata-rata run sebelumnya.
 
+- Setelah merge (2026-11-07), test penuh ke Production (`E2E_BASE_URL=https://bot-creator-three.vercel.app`) dengan juri bawaan Haiku 5.5: **41 lulus, 3 dilewati** (test webhook yang butuh server API tiruan lokal; lulus di lokal). Semua 8 test fase 6 lulus (6 kasus contoh, perbandingan setelah prompt diubah, tagihan run = data sumber, Analitik = database, buat test case dari percakapan, kasus memory dilewati, keamanan). Log error Production 2 jam terakhir hanya 2 penolakan login yang dipicu test keamanan. Deployment `dpl_BsnpEi3gDXpm22Cup9ZoqPbkciV9` (commit `9e8f22f`).
+
 ### Belum / catatan
 - **Temuan penting**: SumoPod hanya melaporkan `cost` pada respons stream (jawaban bot). Panggilan non-stream (juri, memory, ringkasan, persona) tidak membawa biaya, dan `model_prices` sebelumnya kosong, jadi biaya latar belakang akan tercatat 0. Diperbaiki: tabel `model_prices` diisi (migrasi `seed_model_prices`) dengan harga hasil kalibrasi dari angka `cost` SumoPod: Haiku 5.5 USD 0,125 masuk / 0,50 keluar per juta token, Sonnet 5.5 USD 2,50 / 10,00 (selisih prediksi di bawah 0,05%). **Jika SumoPod mengubah harga atau bot memakai model lain, baris ini harus diperbarui**; model tanpa harga dicatat biaya 0. Aturan biaya diubah: angka `cost` provider didahulukan, tabel harga hanya cadangan.
 - Biaya **embedding** (pencarian dan proses knowledge) belum dihitung: SumoPod tidak melaporkan biayanya dan harga embedding belum diisi. Pemakaiannya tercatat (token) tapi biayanya 0. Nilainya sangat kecil untuk pencarian, tapi file besar bisa mencapai sekitar USD 0,1.
@@ -308,7 +310,52 @@ Keputusan: default bot `claude-haiku-5-5` (murah, tercepat, prompt caching jalan
 - Migrasi fase 6 yang sudah diterapkan ke Supabase: `phase6_evals_analytics`, `seed_model_prices`.
 - Bug ditemukan test dan diperbaiki: biaya non-stream tercatat 0 (lihat Temuan penting); balapan di test biaya latar belakang (ekstraksi memory kedua); label tanggal grafik terlalu kecil di HP.
 
-## Catatan untuk sesi berikutnya (ditulis 2026-11-05, diperbarui 2026-11-06)
+## Fase 7: Telegram (2026-11-08)
+
+### Selesai
+- **Bagian Telegram di tab Publikasi**: petunjuk membuat bot lewat BotFather, kolom token (sandi, tidak pernah ditampilkan lagi), tombol Hubungkan, status (Tersambung / dimatikan / Error), tautan `t.me/<username>`, saklar aktif, waktu pesan terakhir, Ganti token, Putuskan (dengan konfirmasi).
+- **Hubungkan**: token diperiksa (`getMe`), token dan kode rahasia acak disimpan di Supabase Vault (fungsi khusus server), webhook didaftarkan otomatis (`setWebhook`, hanya update `message`). Hanya bisa dari alamat Production (Preview Vercel dilindungi login).
+- **Penerima webhook** `/api/telegram/webhook/<id>`: kode rahasia dibandingkan dengan aman (salah/tanpa header: 401, koneksi tak dikenal: 404), `update_id` diklaim sekali (pesan yang dikirim ulang Telegram tidak dibalas dua kali), balasan 200 segera, pemrosesan lewat `after()` dengan batas jawaban 50 detik.
+- **Adapter ke `runBot`** (channel `telegram`, pengguna `tg:<chat_id>`): knowledge dengan baris "Sumber", memory, dan skill berfungsi sama seperti Playground. Perintah `/start` (pesan sambutan bot) dan `/baru` (percakapan baru). Pesan non-teks dibalas "hanya bisa membaca teks". Grup dan bot lain diabaikan. Indikator mengetik selama bot berpikir.
+- **Format**: markdown jawaban diubah ke HTML Telegram (tebal, miring, kode, tautan aman, daftar, tabel, kutipan); jika Telegram menolak format, dikirim ulang sebagai teks biasa. Pesan panjang dipecah di batas paragraf (maks 4096 karakter) tanpa memutus blok kode.
+- **Batas pemakaian**: sama dengan link publik (per menit per chat, harian, biaya harian); batas tercapai: balasan ramah, model tidak dipanggil.
+- **Putuskan / hapus bot**: webhook dilepas di Telegram, token dan kode rahasia ditimpa kosong, baris koneksi dihapus. Menghapus bot memutus Telegram dulu (gagal menimpa rahasia = bot tidak dihapus).
+- Migrasi `phase7_telegram`: `channel_connections` (pemilik hanya boleh membaca), `channel_updates`, `channel_chats`, fungsi rahasia Vault khusus `service_role`. Semua RLS.
+
+### Hasil verifikasi
+- Lint, typecheck bersih. Unit test 175 lulus (22 baru untuk format, pemecah pesan, parser, perbandingan rahasia, penyensoran token). Build berhasil.
+- Playwright lokal dengan server Telegram tiruan (`tests/e2e/phase7.spec.ts`): **12 lulus** (fase 7).
+  1. Token berbentuk salah dan token ditolak Telegram: ditolak dengan pesan jelas, tanpa meninggalkan baris koneksi, pesan galat tidak memuat token. Token benar: "Tersambung", tautan `@kopi_tes_bot`, webhook terdaftar dengan kode rahasia acak.
+  2. Token dan kode rahasia tidak ada di tabel koneksi maupun HTML halaman; ada di Vault.
+  3. Kode rahasia salah/tanpa header/hampir benar: 401, tanpa pesan keluar dan tanpa panggilan model. Grup, isi bukan JSON, dan bentuk tak dikenal diabaikan.
+  4. `/start`, `/baru`, pesan non-teks, dan format yang ditolak Telegram (kirim ulang teks biasa).
+  5. Tanya jam buka: dijawab dari knowledge dengan "Sumber: Jam operasional toko". Perkenalan "nama saya Sari", `/baru`, "Siapa nama saya?": dijawab Sari (memory). "Jam berapa sekarang?": dijawab WIB (skill). Dua percakapan tercatat (channel `telegram`, pengguna `@budi_tes`) dan tampil di tab Percakapan.
+  6. Update yang sama dikirim 3 kali (dua sekaligus): satu balasan, satu catatan biaya.
+  7. Batas per menit 2: 5 pesan menghasilkan 2 jawaban dan 3 penolakan ramah; biaya harian 0: pesan batas, tidak ada panggilan model.
+  8. Saklar mati: pesan tidak diproses; nyala: diproses. Putuskan: `deleteWebhook` dipanggil, rahasia tertimpa, pesan berikutnya 404, riwayat percakapan tetap. Hapus bot: webhook dilepas dan token tidak tersisa.
+  9. Anon dan owner lain tidak bisa membaca koneksi atau memanggil fungsi rahasia, dan tidak bisa menulis tabel koneksi dari browser.
+- Regresi penuh fase 1 sampai 7 di lokal: semua lulus kecuali satu test fase 4 (lihat catatan di bawah); satu test batas fase 7 sempat gagal di putaran penuh karena jendela menit tetap pada pembatas (test diperbaiki agar mulai di awal menit, 12 dari 12 lulus).
+- Keamanan: advisor security Supabase bersih; `channel_updates` dan `channel_chats` ditandai info "RLS tanpa policy" dan itu disengaja (hanya server). Fungsi rahasia tertutup untuk anon dan authenticated. Token disensor dari semua galat dan log (diuji).
+- Screenshot 375px dan 1440px: `tests/e2e/screenshots/p7-*.png` (tidak di-commit).
+
+### Belum / catatan
+- **Belum diuji dengan bot Telegram sungguhan.** Test memakai server Telegram tiruan (aplikasi lokal diarahkan lewat `TELEGRAM_API_BASE`, diabaikan di Vercel). Uji nyata butuh token dari BotFather milik owner di Production (langkah di docs/SETUP.md bagian H). Hal yang hanya bisa terbukti di sana: Telegram benar-benar menerima webhook dari Vercel, tampilan format di aplikasi Telegram, dan kecepatan balasan sungguhan.
+- **Test fase 4 "cari di internet" gagal (2 dari 2 putaran di lokal, 2026-11-08), penyebabnya di penyedia model, bukan di kode.** Panggilan langsung ke SumoPod dengan pencarian bawaan: Haiku 5.5 mengembalikan jawaban KOSONG (3 panggilan alat, 0 token keluar), Sonnet 5.5 menjawab normal. Aplikasi menampilkan "Bot tidak menghasilkan jawaban. Coba ulangi." Test yang sama lulus di Production tanggal 2026-11-07. Dampak: bot Haiku dengan skill "Cari di internet" menyala bisa gagal menjawab. Belum diperbaiki (di luar fase 7). Opsi: ganti model bot yang memakai skill itu ke Sonnet, atau (usulan) buat runBot mengulang tanpa pencarian bawaan bila jawabannya kosong.
+- Hanya chat pribadi dan teks. Grup, gambar, suara, tombol/kartu, dan balasan streaming belum ada (keputusan owner).
+- Dua pesan yang dikirim sangat cepat dari satu chat diproses bersamaan dan bisa saling tumpang tindih di percakapan yang sama (belum dikunci per chat).
+- Pesan yang sudah diklaim tapi gagal diproses di tengah jalan (mis. fungsi mati) tidak dikirim ulang (Telegram dibalas 200 duluan).
+- Baris Vault kosong tersisa setelah koneksi diputus atau bot dihapus (nilainya sudah ditimpa kosong, tidak ada rahasia). Pembersihannya butuh migrasi berisi perintah hapus, yang memunculkan dialog persetujuan Supabase; ditunda.
+- Kartu Telegram ada di bagian bawah halaman Publikasi (di HP perlu menggulir).
+- WhatsApp dan Discord: belum direncanakan (rencana terpisah, WhatsApp butuh langkah di Meta).
+
+### Keputusan penting
+- Keputusan owner (2026-11-08, ikut semua default): siapa pun yang tahu username bot boleh chat (dibatasi batas harian); hanya chat pribadi; gambar dan suara dibalas "belum bisa"; satu bot aplikasi = satu bot Telegram; balasan dikirim utuh (tanpa streaming).
+- **Migrasi tanpa perintah hapus** karena dialog persetujuan Supabase (muncul untuk perintah `delete`) tidak sampai ke aplikasi HP owner dan kedaluwarsa dalam 60 detik. Rahasia ditimpa kosong oleh aplikasi, pembersihan catatan anti-ganda dilakukan kode aplikasi.
+- Koneksi hanya bisa diubah server (secret key) setelah kepemilikan bot dibuktikan lewat RLS; owner hanya boleh membaca statusnya.
+- Telegram tidak mengharuskan "Publikasikan bot" (link publik) aktif; aktifnya diatur per koneksi.
+- Migrasi fase 7 yang sudah diterapkan ke Supabase: `phase7_telegram`.
+
+## Catatan untuk sesi berikutnya (ditulis 2026-11-05, diperbarui 2026-11-08)
 - **Lingkungan**: semua eksekusi (npm, test, build, Playwright) di Claude Code web. Laptop owner tidak bisa menjalankan aplikasi. Owner tidak membaca kode; beri langkah bernomor untuk tindakan manual.
 - **Alamat**: Production `https://bot-creator-three.vercel.app`. Preview per branch dilindungi login Vercel (pengunjung tanpa akun Vercel tidak bisa membuka). Tes sebagai pengunjung harus di Production.
 - **Supabase**: project `Bot-Creator`, id `dyawcgbeqqsyhoyatrhz` (region Singapura). Migrasi diterapkan lewat connector Supabase (`apply_migration`); statement yang menghapus sesuatu (drop/delete) memunculkan dialog konfirmasi untuk owner, jadi hindari `drop` jika bisa (pakai `alter` / `create or replace`).
@@ -319,6 +366,8 @@ Keputusan: default bot `claude-haiku-5-5` (murah, tercepat, prompt caching jalan
 - **Vitest 5**: error yang dilempar dari dalam fungsi `vi.fn()` dilaporkan sebagai kegagalan test walau ditangkap kode. Untuk menguji jalur error jaringan, pakai panggilan sungguhan ke domain `.invalid` (lihat `tests/unit/skills-net.test.ts`).
 - **Biaya (diperbarui fase 6)**: jawaban bot di `messages.cost_usd`; semua panggilan model lain di `llm_usage` (memory, ringkasan, embedding pencarian, persona, tes pencarian, juri, saran test case). Biaya non-stream dihitung dari `model_prices` (hanya Haiku 5.5 dan Sonnet 5.5 terisi, lihat bagian Fase 6). Embedding belum dihargai. Batas biaya harian fase 5 kini menghitung jawaban + biaya latar belakang channel publik.
 - **Eval**: `npm run eval -- --bot <slug>` atau tab Evals. Percakapan eval berchannel `eval`. Test fase 6 memakai model sungguhan (sekitar USD 0,06 per putaran penuh).
-- **Test lokal**: putaran penuh fase 1 sampai 6 sekitar 19 menit.
+- **Test lokal**: putaran penuh fase 1 sampai 7 sekitar 19 sampai 24 menit. Test fase 7 memakai server Telegram tiruan di port 3197 (env `TELEGRAM_API_BASE` diisi `playwright.config.ts`).
+- **Migrasi Supabase**: hindari perintah `delete`/`drop` di migrasi (dialog persetujuan Supabase tidak muncul di aplikasi HP owner dan kedaluwarsa dalam 60 detik). Pakai `create or replace`/`alter`; pembersihan data lewat kode aplikasi.
+- **Telegram**: token tidak pernah ditempel di chat; langkah owner ada di docs/SETUP.md bagian H.
 
 (diisi Claude Code di akhir tiap fase)

@@ -25,6 +25,16 @@ export async function getPublicBot(slug: string): Promise<PublicBot | null> {
   return data;
 }
 
+/** Bot untuk channel pesan (Telegram dst.): tidak mengharuskan link publik aktif, aktifnya diatur per koneksi. */
+export async function getBotForChannel(botId: string): Promise<PublicBot | null> {
+  const { data, error } = await createAdminClient().from("bots").select(PUBLIC_COLUMNS).eq("id", botId).maybeSingle<PublicBot>();
+  if (error) {
+    console.error("[channel] gagal memuat bot", error);
+    throw error;
+  }
+  return data;
+}
+
 /** IP pengunjung dari header proxy standar (Vercel, Nginx, Coolify). */
 export function clientIp(req: Request): string {
   const xff = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
@@ -33,12 +43,15 @@ export function clientIp(req: Request): string {
 
 export type LimitResult = { ok: true } | { ok: false; reason: "per_minute" | "daily_messages" | "daily_cost"; message: string };
 
-/** Cek semua batas sebelum memanggil model. Batas harian hanya menghitung channel publik. */
-export async function checkLimits(bot: PublicBot, visitorId: string, ip: string): Promise<LimitResult> {
+/**
+ * Cek semua batas sebelum memanggil model. Batas harian hanya menghitung channel publik
+ * (web, widget, telegram, whatsapp). `ip` null = channel tanpa IP pengunjung (mis. Telegram): hanya batas per pengguna.
+ */
+export async function checkLimits(bot: PublicBot, visitorId: string, ip: string | null): Promise<LimitResult> {
   const db = createAdminClient();
   const per = Number(bot.per_minute_limit);
   const [byIp, byVisitor] = await Promise.all([
-    db.rpc("hit_rate_limit", { p_key: `ip:${bot.id}:${ip}`, p_window_seconds: 60, p_max: per }),
+    ip === null ? Promise.resolve({ data: true, error: null }) : db.rpc("hit_rate_limit", { p_key: `ip:${bot.id}:${ip}`, p_window_seconds: 60, p_max: per }),
     db.rpc("hit_rate_limit", { p_key: `visitor:${bot.id}:${visitorId}`, p_window_seconds: 60, p_max: per }),
   ]);
   if (byIp.error || byVisitor.error) throw byIp.error ?? byVisitor.error;

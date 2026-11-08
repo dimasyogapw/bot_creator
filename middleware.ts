@@ -5,8 +5,8 @@ import { frameAncestors } from "@/lib/publish/schema";
 
 const PUBLIC_PATHS = ["/login", "/setup"];
 
-/** Channel publik: tanpa login sama sekali (link, widget, API publik, skrip widget). */
-const OPEN_PREFIXES = ["/c/", "/embed/", "/api/public/"];
+/** Channel publik: tanpa login sama sekali (link, widget, API publik, skrip widget, webhook Telegram yang dijaga kode rahasia). */
+const OPEN_PREFIXES = ["/c/", "/embed/", "/api/public/", "/api/telegram/webhook/"];
 
 /** Domain yang boleh memasang widget bot ini, untuk header CSP frame-ancestors. */
 async function embedAncestors(slug: string): Promise<string> {

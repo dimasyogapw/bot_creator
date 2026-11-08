@@ -20,7 +20,7 @@ Bukan gaya "template admin" yang penuh kartu warna-warni.
    - *Knowledge*: daftar sumber + status proses, upload drag and drop.
    - *Memory*: daftar memory per end user, bisa dihapus.
    - *Skills*: daftar skill dengan toggle on/off dan form konfigurasi.
-   - *Publikasi*: link publik, kode embed widget, koneksi Telegram/WhatsApp.
+   - *Publikasi*: link publik, kode embed widget, koneksi Telegram (token, status, saklar, putuskan) dan nanti WhatsApp.
    - *Percakapan*: riwayat chat, filter channel, feedback.
    - *Evals*: daftar test case (tambah/impor), tombol "Jalankan" dengan perkiraan biaya, riwayat run (skor, selisih, biaya), halaman hasil per kasus dengan penilaian juri, perbandingan run sebelumnya, dan tagihan run (bot, juri, latar belakang).
    - *Analitik*: ringkasan 7/30/90 hari (percakapan, jawaban, token, biaya jawaban/latar belakang/eval, latensi, jempol, skor eval terakhir) dan grafik batang per hari.

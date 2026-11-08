@@ -1,5 +1,8 @@
 import { headers } from "next/headers";
 import { PublishForm } from "@/components/publish/publish-form";
+import { TelegramCard } from "@/components/publish/telegram-card";
+import { getConnectionByBot } from "@/lib/channels/telegram/connection";
+import { getUser } from "@/lib/supabase/server";
 import { getBotOr404 } from "@/lib/bots/queries";
 import { publicUsageToday } from "@/lib/publish/public";
 import { widgetSchema } from "@/lib/publish/schema";
@@ -14,6 +17,13 @@ export default async function PublishPage({ params }: { params: Promise<{ botId:
   const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
   const origin = `${proto}://${host}`;
   const usage = await publicUsageToday(bot.id).catch(() => null);
+  // Status koneksi dibaca lewat RLS (owner). Token dan kode rahasia tidak pernah dibaca di sini.
+  const { supabase } = await getUser();
+  const connection = await getConnectionByBot(supabase, bot.id).catch((e) => {
+    console.error("[publish] gagal memuat koneksi telegram", e);
+    return null;
+  });
+  const canConnect = !process.env.VERCEL || process.env.VERCEL_ENV === "production";
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-6">
@@ -33,6 +43,14 @@ export default async function PublishPage({ params }: { params: Promise<{ botId:
           allowed_domains: bot.allowed_domains ?? [],
         }}
       />
+      <div className="mt-6">
+        <TelegramCard
+          key={connection ? `${connection.id}:${connection.status}:${connection.enabled}` : "none"}
+          botId={bot.id}
+          canConnect={canConnect}
+          connection={connection ? { enabled: connection.enabled, status: connection.status, bot_username: connection.bot_username, last_error: connection.last_error, last_message_at: connection.last_message_at } : null}
+        />
+      </div>
     </main>
   );
 }

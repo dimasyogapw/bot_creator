@@ -126,3 +126,13 @@ Skill "Cari di internet" sudah jalan tanpa Tavily untuk bot bermodel Claude atau
 4. Claude Code web (agar bisa dites otomatis): menu environment, **Edit**, tambah variabel `TAVILY_API_KEY` dan tambah domain `api.tavily.com` di Allowed domains. Mulai sesi baru.
 5. Di aplikasi: tab **Skills**, nyalakan **Cari di internet**.
 
+---
+
+## H. Telegram (fase 7, dikerjakan owner setelah kode di-merge)
+Telegram hanya bisa dihubungkan dari alamat Production (https://bot-creator-three.vercel.app), tidak dari alamat Preview. Tidak ada variabel Vercel baru yang wajib.
+1. Buka aplikasi Telegram, cari **@BotFather** (centang biru), tekan Start.
+2. Kirim `/newbot`. Isi nama tampilan (bebas), lalu username unik berakhiran `bot` (mis. `kopisenja_tes_bot`). Disarankan bot khusus uji.
+3. BotFather membalas **token** (angka, titik dua, huruf dan angka). **Jangan kirim token ke chat Claude Code atau siapa pun.** Kalau token pernah tertempel di tempat lain, buat token baru lewat BotFather (`/revoke`).
+4. Buka https://bot-creator-three.vercel.app, pilih bot, tab **Publikasi**, gulir ke bagian **Telegram**, tempel token, tekan **Hubungkan**. Status harus menjadi "Tersambung".
+5. Buka tautan `@username` yang tampil, tekan Start, lalu coba tanya sesuatu. Percakapan muncul di tab Percakapan dengan channel Telegram.
+6. Untuk berhenti: tekan **Putuskan** di bagian yang sama (token dihapus dari aplikasi). Untuk mencabut sepenuhnya, kirim `/revoke` ke BotFather.

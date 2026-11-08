@@ -7,6 +7,7 @@ import { getUser } from "@/lib/supabase/server";
 import { getChatModels } from "@/lib/llm/models";
 import { generatePersona } from "@/lib/bot/persona";
 import { removeBotImages } from "@/lib/chat/images";
+import { disconnectTelegram } from "@/lib/channels/telegram/connection";
 import { botInputSchema, botSettingsSchema, fieldErrors, personaAnswersSchema, slugify, type PersonaResult } from "./schema";
 
 export type ActionResult<T = undefined> =
@@ -86,6 +87,11 @@ export async function deleteBot(botId: string): Promise<ActionResult> {
   if (!idSchema.safeParse(botId).success) return { ok: false, error: "Bot tidak valid." };
   try {
     const { supabase } = await requireUser();
+    // Koneksi Telegram diputus dulu (webhook dilepas, token ditimpa kosong) supaya token tidak tersisa di Vault.
+    const { data: owned } = await supabase.from("bots").select("id").eq("id", botId).maybeSingle();
+    if (!owned) return { ok: false, error: "Bot tidak ditemukan." };
+    const tg = await disconnectTelegram(botId);
+    if (!tg.ok) return { ok: false, error: tg.error };
     // File knowledge di storage tidak ikut terhapus otomatis oleh database: hapus dulu.
     const { data: files } = await supabase.from("knowledge_sources").select("storage_path").eq("bot_id", botId).not("storage_path", "is", null);
     const paths = (files ?? []).map((f) => f.storage_path as string);
