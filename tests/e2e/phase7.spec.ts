@@ -140,7 +140,7 @@ test.describe.serial("Fase 7: Telegram", () => {
     await login(page);
     await page.goto(`/bots/${botId}/publish`);
     await expect(page.getByTestId("telegram-card")).toBeVisible();
-    await expect(page.getByRole("heading", { name: /Telegram/ })).toBeVisible();
+    await expect(page.getByTestId("telegram-card").getByRole("heading", { name: "Telegram" })).toBeVisible();
     await expect(page.getByTestId("telegram-connect")).toBeDisabled();
     await expect(page.getByTestId("telegram-token")).toHaveAttribute("type", "password");
     await shot(page, "p7-01-telegram-card-empty");
